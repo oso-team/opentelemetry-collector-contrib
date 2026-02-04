@@ -1,13 +1,6 @@
 type: oracleclouddetector
 type: oracleclouddetector
 
-status:
-  class: processor
-  stability:
-    alpha: [traces, metrics, logs, profiles]
-  codeowners:
-    active: [dashpole]
-
 resource_attributes:
   cloud.availability_zone:
     description: The [availability domain](https://docs.oracle.com/en-us/iaas/Content/General/Concepts/regions.htm) in which this Oracle Cloud instance is running (e.g., "PHX-AD-1").
