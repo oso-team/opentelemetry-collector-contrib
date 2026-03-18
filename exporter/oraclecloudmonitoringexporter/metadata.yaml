@@ -1,0 +1,17 @@
+type: oraclecloudmonitoring
+display_name: Oracle Cloud Monitoring Exporter
+
+status:
+  class: exporter
+  stability:
+    alpha: [metrics]
+  distributions: [contrib]
+  codeowners:
+    active: [sharukhhassan]
+
+tests:
+  skip_lifecycle: true
+  config:
+    region: us-phoenix-1
+    auth:
+      authenticator: oraclecloudauth
