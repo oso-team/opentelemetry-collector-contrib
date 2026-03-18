@@ -1,0 +1,14 @@
+display_name: Oracle Cloud Auth Extension
+type: oraclecloudauth
+
+status:
+  class: extension
+  stability:
+    alpha: [extension]
+  distributions: [contrib]
+  codeowners:
+    active: [sharukhhassan]
+
+tests:
+  config:
+    auth_type: api_key
