@@ -30,7 +30,7 @@ func (c *Config) Validate() error {
 
 func isReservedAttributeKey(k string) bool {
 	switch k {
-	case "monitoring_compartment_id", "oci.monitoring.compartment.id", "monitoring_namespace", "oci.monitoring.namespace":
+	case "oci.monitoring.compartment.id", "oci.monitoring.namespace":
 		return true
 	default:
 		return false

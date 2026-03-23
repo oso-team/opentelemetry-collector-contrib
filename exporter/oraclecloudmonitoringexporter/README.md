@@ -80,8 +80,8 @@ exporters:
 
 Each metric datapoint must provide routing attributes for OCI Monitoring:
 
-- `monitoring_compartment_id` or `oci.monitoring.compartment.id`
-- `monitoring_namespace` or `oci.monitoring.namespace`
+- `oci.monitoring.compartment.id`
+- `oci.monitoring.namespace`
 
 Attribute resolution order:
 
@@ -95,9 +95,7 @@ If either value is missing, that datapoint is dropped.
 All resource and datapoint attributes are merged into OCI metric dimensions,
 except reserved routing keys:
 
-- `monitoring_compartment_id`
 - `oci.monitoring.compartment.id`
-- `monitoring_namespace`
 - `oci.monitoring.namespace`
 
 Reserved keys are used only for OCI routing and are not emitted as dimensions.

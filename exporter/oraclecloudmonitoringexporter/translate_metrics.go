@@ -10,7 +10,7 @@ import (
 	"go.opentelemetry.io/collector/pdata/pmetric"
 )
 
-var errMissingRequiredAttributes = errors.New(`missing required attributes "monitoring_compartment_id" (or "oci.monitoring.compartment.id") and "monitoring_namespace" (or "oci.monitoring.namespace")`)
+var errMissingRequiredAttributes = errors.New(`missing required attributes "oci.monitoring.compartment.id" and "oci.monitoring.namespace"`)
 
 func translateMetrics(md pmetric.Metrics) ([]monitoring.MetricDataDetails, int, error) {
 	out := make([]monitoring.MetricDataDetails, 0)
@@ -68,8 +68,8 @@ func forEachNumberDataPoint(points pmetric.NumberDataPointSlice, fn func(dp pmet
 }
 
 func buildMetricDataDetails(metricName string, resourceAttrs pcommon.Map, datapointAttrs pcommon.Map, value float64, ts time.Time) (monitoring.MetricDataDetails, error) {
-	compartmentID := getAttributeString(datapointAttrs, resourceAttrs, "monitoring_compartment_id", "oci.monitoring.compartment.id")
-	namespace := getAttributeString(datapointAttrs, resourceAttrs, "monitoring_namespace", "oci.monitoring.namespace")
+	compartmentID := getAttributeString(datapointAttrs, resourceAttrs, "oci.monitoring.compartment.id")
+	namespace := getAttributeString(datapointAttrs, resourceAttrs, "oci.monitoring.namespace")
 	if compartmentID == "" || namespace == "" {
 		return monitoring.MetricDataDetails{}, errMissingRequiredAttributes
 	}
