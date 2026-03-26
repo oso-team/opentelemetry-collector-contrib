@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 )
 
-type ociClient struct {
+type oracleCloudMonitoringClient struct {
 	logger *zap.Logger
 	client monitoringClient
 }
@@ -27,29 +27,29 @@ var (
 	}
 )
 
-func newOCIClientFromHost(cfg *Config, logger *zap.Logger, host component.Host) (*ociClient, error) {
+func newMonitoringClientFromHost(cfg *Config, logger *zap.Logger, host component.Host) (*oracleCloudMonitoringClient, error) {
 	provider, err := resolveAuthExtensionProvider(cfg, host)
 	if err != nil {
 		return nil, err
 	}
-	return newOCIClientWithProvider(cfg, logger, provider)
+	return newMonitoringClientWithProvider(cfg, logger, provider)
 }
 
-func newOCIClientWithProvider(cfg *Config, logger *zap.Logger, provider common.ConfigurationProvider) (*ociClient, error) {
-	ociMonitoringClient, err := newMonitoringClient(provider)
+func newMonitoringClientWithProvider(cfg *Config, logger *zap.Logger, provider common.ConfigurationProvider) (*oracleCloudMonitoringClient, error) {
+	monitoringClient, err := newMonitoringClient(provider)
 	if err != nil {
-		return nil, fmt.Errorf("failed creating OCI Monitoring client: %w", err)
+		return nil, fmt.Errorf("failed creating monitoring client: %w", err)
 	}
 
-	ociMonitoringClient.SetRegion(cfg.Region)
+	monitoringClient.SetRegion(cfg.Region)
 
-	if ociMonitoringClient.Host != "" {
-		ociMonitoringClient.Host = strings.Replace(ociMonitoringClient.Host, "telemetry.", "telemetry-ingestion.", 1)
+	if monitoringClient.Host != "" {
+		monitoringClient.Host = strings.Replace(monitoringClient.Host, "telemetry.", "telemetry-ingestion.", 1)
 	}
 
-	return &ociClient{
+	return &oracleCloudMonitoringClient{
 		logger: logger,
-		client: &ociMonitoringClient,
+		client: &monitoringClient,
 	}, nil
 }
 
@@ -67,12 +67,12 @@ func resolveAuthExtensionProvider(cfg *Config, host component.Host) (common.Conf
 
 	provider := providerExt.ConfigurationProvider()
 	if provider == nil {
-		return nil, fmt.Errorf("auth extension %q returned nil OCI configuration provider", authID.String())
+		return nil, fmt.Errorf("auth extension %q returned nil configuration provider", authID.String())
 	}
 	return provider, nil
 }
 
-func (c *ociClient) SendMetrics(ctx context.Context, metricData []monitoring.MetricDataDetails) error {
+func (c *oracleCloudMonitoringClient) SendMetrics(ctx context.Context, metricData []monitoring.MetricDataDetails) error {
 	_, err := c.client.PostMetricData(ctx, monitoring.PostMetricDataRequest{
 		PostMetricDataDetails: monitoring.PostMetricDataDetails{
 			MetricData: metricData,

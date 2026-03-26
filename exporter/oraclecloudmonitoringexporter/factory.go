@@ -16,7 +16,7 @@ var (
 	Type = component.MustNewType("oraclecloudmonitoring")
 )
 
-// NewFactory creates a factory for the OCI Monitoring exporter.
+// NewFactory creates a factory for the Oracle Cloud Monitoring exporter.
 func NewFactory() exporter.Factory {
 	return exporter.NewFactory(
 		Type,
@@ -38,14 +38,14 @@ func createMetricsExporter(
 	set exporter.Settings,
 	cfg component.Config,
 ) (exporter.Metrics, error) {
-	ociCfg := cfg.(*Config)
+	exporterCfg := cfg.(*Config)
 
-	if err := ociCfg.Validate(); err != nil {
+	if err := exporterCfg.Validate(); err != nil {
 		return nil, err
 	}
 
 	exp := &metricsExporter{
-		cfg:    ociCfg,
+		cfg:    exporterCfg,
 		logger: set.Logger,
 	}
 
@@ -55,8 +55,8 @@ func createMetricsExporter(
 		cfg,
 		exp.pushMetricsData,
 		exporterhelper.WithStart(exp.start),
-		exporterhelper.WithTimeout(ociCfg.TimeoutSettings),
-		exporterhelper.WithRetry(ociCfg.RetrySettings),
-		exporterhelper.WithQueue(ociCfg.QueueSettings),
+		exporterhelper.WithTimeout(exporterCfg.TimeoutSettings),
+		exporterhelper.WithRetry(exporterCfg.RetrySettings),
+		exporterhelper.WithQueue(exporterCfg.QueueSettings),
 	)
 }

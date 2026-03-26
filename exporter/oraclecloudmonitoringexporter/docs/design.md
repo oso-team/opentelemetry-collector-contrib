@@ -1,8 +1,8 @@
 # Design (Draft)
 
-## OTel to OCI Monitoring - Metric type mapping
+## OTel to Oracle Cloud Monitoring - Metric type mapping
 
-***OCI Monitoring metrics schema:***
+***Oracle Cloud Monitoring metrics schema:***
 
 **compartmentId** - Mandatory to scope
 
@@ -49,8 +49,8 @@ Example:
 resource_metrics {
   resource {
     attributes { key: "service.name" value { string_value: "checkout" } }
-    attributes { key: "oci.monitoring.compartment.id" value { string_value: "ocid1.compartment.oc1..aaaa..." } }
-    attributes { key: "oci.monitoring.namespace" value { string_value: "otel_demo" } }
+    attributes { key: "oracle_cloud.monitoring.compartment.id" value { string_value: "ocid1.compartment.oc1..aaaa..." } }
+    attributes { key: "oracle_cloud.monitoring.namespace" value { string_value: "otel_demo" } }
   }
   scope_metrics {
     metrics {
@@ -97,8 +97,8 @@ resource_metrics {
 resource_metrics {
   resource {
     attributes { key: "service.name" value { string_value: "checkout" } }
-    attributes { key: "oci.monitoring.compartment.id" value { string_value: "ocid1.compartment.oc1..aaaa..." } }
-    attributes { key: "oci.monitoring.namespace" value { string_value: "otel_demo" } }
+    attributes { key: "oracle_cloud.monitoring.compartment.id" value { string_value: "ocid1.compartment.oc1..aaaa..." } }
+    attributes { key: "oracle_cloud.monitoring.namespace" value { string_value: "otel_demo" } }
   }
   scope_metrics {
     metrics {
@@ -145,8 +145,8 @@ resource_metrics {
 resource_metrics {
   resource {
     attributes { key: "service.name" value { string_value: "checkout" } }
-    attributes { key: "oci.monitoring.compartment.id" value { string_value: "ocid1.compartment.oc1..aaaa..." } }
-    attributes { key: "oci.monitoring.namespace" value { string_value: "otel_demo" } }
+    attributes { key: "oracle_cloud.monitoring.compartment.id" value { string_value: "ocid1.compartment.oc1..aaaa..." } }
+    attributes { key: "oracle_cloud.monitoring.namespace" value { string_value: "otel_demo" } }
   }
   scope_metrics {
     metrics {
@@ -365,7 +365,7 @@ Can follow the same approach as Histogram
 
 ## Data Validation and drop policy
 
-- Missing routing attrs (`oci.monitoring.compartment.id`/`oci.monitoring.namespace`) 
+- Missing routing attrs (`oracle_cloud.monitoring.compartment.id`/`oracle_cloud.monitoring.namespace`) 
     - Drop datapoint, count/log reason
 - Unsupported metric type in current mode (Example: Summary)
     - Drop datapoint, count/log reason

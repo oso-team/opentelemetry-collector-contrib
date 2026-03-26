@@ -54,7 +54,7 @@ var _ oraclecloudauthextension.ConfigurationProvider = (*fakeOracleCloudAuthExte
 
 func TestSendMetrics(t *testing.T) {
 	fake := &fakeMonitoringClient{}
-	client := &ociClient{
+	client := &oracleCloudMonitoringClient{
 		logger: zap.NewNop(),
 		client: fake,
 	}
@@ -73,7 +73,7 @@ func TestSendMetrics(t *testing.T) {
 
 func TestSendMetricsError(t *testing.T) {
 	fake := &fakeMonitoringClient{err: errors.New("boom")}
-	client := &ociClient{
+	client := &oracleCloudMonitoringClient{
 		logger: zap.NewNop(),
 		client: fake,
 	}
@@ -113,7 +113,7 @@ func TestResolveAuthExtensionProviderMissing(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestNewOCIClientFromHost(t *testing.T) {
+func TestNewMonitoringClientFromHost(t *testing.T) {
 	authID := component.MustNewID("oraclecloudauth")
 	cfg := &Config{
 		Region: "us-phoenix-1",
@@ -122,7 +122,7 @@ func TestNewOCIClientFromHost(t *testing.T) {
 		}),
 	}
 
-	client, err := newOCIClientFromHost(cfg, zap.NewNop(), fakeHost{
+	client, err := newMonitoringClientFromHost(cfg, zap.NewNop(), fakeHost{
 		extensions: map[component.ID]component.Component{
 			authID: &fakeOracleCloudAuthExtension{provider: common.DefaultConfigProvider()},
 		},

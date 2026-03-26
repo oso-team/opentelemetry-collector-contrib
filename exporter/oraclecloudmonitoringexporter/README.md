@@ -15,8 +15,8 @@
 # Oracle Cloud Monitoring Exporter
 
 The `oraclecloudmonitoring` exporter sends OpenTelemetry metrics to
-[OCI Monitoring](https://docs.oracle.com/en-us/iaas/Content/Monitoring/home.htm)
-using the OCI Go SDK.
+[Oracle Cloud Monitoring](https://docs.oracle.com/en-us/iaas/Content/Monitoring/home.htm)
+using the oci-go-sdk.
 
 This exporter is intended to be used with the
 `oraclecloudauthextension` authenticator extension.
@@ -29,9 +29,16 @@ This exporter is intended to be used with the
 
 The following settings are required:
 
-- `region`: OCI region where metrics should be ingested (for example,
+- `region`: Oracle Cloud region where metrics should be ingested (for example,
   `us-phoenix-1`).
 - `auth.authenticator`: ID of an `oraclecloudauthextension` instance.
+
+Optional routing fallback settings:
+
+- `compartment_id`: default compartment id when resource routing attribute is absent.
+- `namespace`: default namespace when resource routing attribute is absent.
+
+`compartment_id` and `namespace` must be configured together if set.
 
 Example:
 
@@ -78,27 +85,27 @@ exporters:
 
 ## Required Metric Attributes
 
-Each metric datapoint must provide routing attributes for OCI Monitoring:
+Each metric datapoint must provide routing values for Oracle Cloud Monitoring:
 
-- `oci.monitoring.compartment.id`
-- `oci.monitoring.namespace`
+- `oracle_cloud.monitoring.compartment.id`
+- `oracle_cloud.monitoring.namespace`
 
 Attribute resolution order:
 
-1. datapoint attributes
-2. resource attributes
+1. resource attributes (`oracle_cloud.monitoring.*`)
+2. exporter config fallback (`compartment_id` and `namespace`)
 
-If either value is missing, that datapoint is dropped.
+If either routing value is still missing, that datapoint is dropped.
 
 ## Dimensions and Reserved Keys
 
-All resource and datapoint attributes are merged into OCI metric dimensions,
+All resource and datapoint attributes are merged into monitoring metric dimensions,
 except reserved routing keys:
 
-- `oci.monitoring.compartment.id`
-- `oci.monitoring.namespace`
+- `oracle_cloud.monitoring.compartment.id`
+- `oracle_cloud.monitoring.namespace`
 
-Reserved keys are used only for OCI routing and are not emitted as dimensions.
+Reserved keys are used only for monitoring metric routing and are not emitted as dimensions.
 
 ## Metric Type Coverage
 
@@ -106,16 +113,11 @@ Currently supported:
 
 - Gauge
 - Sum
-
-Currently skipped:
-
-- Histogram
-- ExponentialHistogram
-- Summary
+- Histogram (sum and count only)
 
 ## Notes
 
 - Authentication is extension-driven. Configure credentials in
   `oraclecloudauthextension`, not in this exporter.
-- The exporter uses the OCI Monitoring ingestion endpoint for the selected
+- The exporter uses the Oracle Cloud Monitoring ingestion endpoint for the selected
   region.

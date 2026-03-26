@@ -6,6 +6,7 @@ package oraclecloudauthextension // import "github.com/open-telemetry/openteleme
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/oracle/oci-go-sdk/v65/common"
 	"github.com/oracle/oci-go-sdk/v65/common/auth"
@@ -31,6 +32,23 @@ var (
 		return auth.InstancePrincipalConfigurationProviderForRegion(common.StringToRegion(cfg.Region))
 	}
 	newResourcePrincipalProvider = func(cfg ResourcePrincipalConfig) (common.ConfigurationProvider, error) {
+		// Prefer OKE Workload Identity when running in OKE.
+		// OCI SDK currently expects RP env vars even for OKE workload identity.
+		// Seed sensible defaults when absent.
+		if _, ok := os.LookupEnv(auth.ResourcePrincipalVersionEnvVar); !ok {
+			_ = os.Setenv(auth.ResourcePrincipalVersionEnvVar, auth.ResourcePrincipalVersion2_2)
+		}
+		if cfg.Region != "" {
+			if _, ok := os.LookupEnv(auth.ResourcePrincipalRegionEnvVar); !ok {
+				_ = os.Setenv(auth.ResourcePrincipalRegionEnvVar, cfg.Region)
+			}
+		}
+
+		// Fall back to generic resource principals for non-OKE environments.
+		provider, err := auth.OkeWorkloadIdentityConfigurationProvider()
+		if err == nil {
+			return provider, nil
+		}
 		if cfg.Region == "" {
 			return auth.ResourcePrincipalConfigurationProvider()
 		}

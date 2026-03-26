@@ -1,7 +1,7 @@
 package oraclecloudmonitoringexporter
 
 import (
-	"errors"
+	"fmt"
 	"time"
 
 	"github.com/oracle/oci-go-sdk/v65/common"
@@ -10,9 +10,7 @@ import (
 	"go.opentelemetry.io/collector/pdata/pmetric"
 )
 
-var errMissingRequiredAttributes = errors.New(`missing required attributes "oci.monitoring.compartment.id" and "oci.monitoring.namespace"`)
-
-func translateMetrics(md pmetric.Metrics) ([]monitoring.MetricDataDetails, int, error) {
+func translateMetrics(md pmetric.Metrics, compIdCfg string, nsCfg string) ([]monitoring.MetricDataDetails, int, error) {
 	out := make([]monitoring.MetricDataDetails, 0)
 	dropped := 0
 
@@ -29,7 +27,7 @@ func translateMetrics(md pmetric.Metrics) ([]monitoring.MetricDataDetails, int, 
 				switch m.Type() {
 				case pmetric.MetricTypeGauge:
 					if err := forEachNumberDataPoint(m.Gauge().DataPoints(), func(dp pmetric.NumberDataPoint) error {
-						detail, err := buildMetricDataDetails(m.Name(), resourceAttrs, dp.Attributes(), numberDataPointValue(dp), dataPointTimestamp(dp.Timestamp()))
+						detail, err := buildMetricDataDetails(m.Name(), resourceAttrs, dp.Attributes(), compIdCfg, nsCfg, numberDataPointValue(dp), dataPointTimestamp(dp.Timestamp()))
 						if err != nil {
 							return err
 						}
@@ -40,11 +38,51 @@ func translateMetrics(md pmetric.Metrics) ([]monitoring.MetricDataDetails, int, 
 					}
 				case pmetric.MetricTypeSum:
 					if err := forEachNumberDataPoint(m.Sum().DataPoints(), func(dp pmetric.NumberDataPoint) error {
-						detail, err := buildMetricDataDetails(m.Name(), resourceAttrs, dp.Attributes(), numberDataPointValue(dp), dataPointTimestamp(dp.Timestamp()))
+						detail, err := buildMetricDataDetails(m.Name(), resourceAttrs, dp.Attributes(), compIdCfg, nsCfg, numberDataPointValue(dp), dataPointTimestamp(dp.Timestamp()))
 						if err != nil {
 							return err
 						}
 						out = append(out, detail)
+						return nil
+					}); err != nil {
+						return nil, dropped, err
+					}
+				case pmetric.MetricTypeHistogram:
+					if err := forEachHistogramDataPoint(m.Histogram().DataPoints(), func(dp pmetric.HistogramDataPoint) error {
+						// For histogram datapoints, emit count always and sum when present.
+						countDetail, err := buildMetricDataDetails(m.Name()+".count", resourceAttrs, dp.Attributes(), compIdCfg, nsCfg, float64(dp.Count()), dataPointTimestamp(dp.Timestamp()))
+						if err != nil {
+							return err
+						}
+						out = append(out, countDetail)
+
+						if dp.HasSum() {
+							sumDetail, err := buildMetricDataDetails(m.Name()+".sum", resourceAttrs, dp.Attributes(), compIdCfg, nsCfg, dp.Sum(), dataPointTimestamp(dp.Timestamp()))
+							if err != nil {
+								return err
+							}
+							out = append(out, sumDetail)
+						}
+						return nil
+					}); err != nil {
+						return nil, dropped, err
+					}
+				case pmetric.MetricTypeExponentialHistogram:
+					if err := forEachExponentialHistogramDataPoint(m.ExponentialHistogram().DataPoints(), func(dp pmetric.ExponentialHistogramDataPoint) error {
+						// For exponential histogram datapoints, emit count always and sum when present.
+						countDetail, err := buildMetricDataDetails(m.Name()+".count", resourceAttrs, dp.Attributes(), compIdCfg, nsCfg, float64(dp.Count()), dataPointTimestamp(dp.Timestamp()))
+						if err != nil {
+							return err
+						}
+						out = append(out, countDetail)
+
+						if dp.HasSum() {
+							sumDetail, err := buildMetricDataDetails(m.Name()+".sum", resourceAttrs, dp.Attributes(), compIdCfg, nsCfg, dp.Sum(), dataPointTimestamp(dp.Timestamp()))
+							if err != nil {
+								return err
+							}
+							out = append(out, sumDetail)
+						}
 						return nil
 					}); err != nil {
 						return nil, dropped, err
@@ -67,11 +105,28 @@ func forEachNumberDataPoint(points pmetric.NumberDataPointSlice, fn func(dp pmet
 	return nil
 }
 
-func buildMetricDataDetails(metricName string, resourceAttrs pcommon.Map, datapointAttrs pcommon.Map, value float64, ts time.Time) (monitoring.MetricDataDetails, error) {
-	compartmentID := getAttributeString(datapointAttrs, resourceAttrs, "oci.monitoring.compartment.id")
-	namespace := getAttributeString(datapointAttrs, resourceAttrs, "oci.monitoring.namespace")
-	if compartmentID == "" || namespace == "" {
-		return monitoring.MetricDataDetails{}, errMissingRequiredAttributes
+func forEachHistogramDataPoint(points pmetric.HistogramDataPointSlice, fn func(dp pmetric.HistogramDataPoint) error) error {
+	for i := 0; i < points.Len(); i++ {
+		if err := fn(points.At(i)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func forEachExponentialHistogramDataPoint(points pmetric.ExponentialHistogramDataPointSlice, fn func(dp pmetric.ExponentialHistogramDataPoint) error) error {
+	for i := 0; i < points.Len(); i++ {
+		if err := fn(points.At(i)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func buildMetricDataDetails(metricName string, resourceAttrs pcommon.Map, datapointAttrs pcommon.Map, compIdCfg string, nsCfg string, value float64, ts time.Time) (monitoring.MetricDataDetails, error) {
+	compartmentID, namespace, err := getRoutingValues(resourceAttrs, compIdCfg, nsCfg)
+	if err != nil {
+		return monitoring.MetricDataDetails{}, err
 	}
 
 	dimensions := mergedDimensions(resourceAttrs, datapointAttrs)
@@ -105,16 +160,27 @@ func mergedDimensions(resourceAttrs pcommon.Map, datapointAttrs pcommon.Map) map
 	return dimensions
 }
 
-func getAttributeString(primary pcommon.Map, fallback pcommon.Map, keys ...string) string {
-	for _, key := range keys {
-		if value, ok := primary.Get(key); ok {
-			return value.AsString()
-		}
-		if value, ok := fallback.Get(key); ok {
-			return value.AsString()
-		}
+func getRoutingValues(resAttr pcommon.Map, compIdCfg string, nsCfg string) (string, string, error) {
+	compartmentId := ""
+	namespace := ""
+	if c, ok := resAttr.Get(monitoringCompartmentIdKey); ok {
+		compartmentId = c.AsString()
 	}
-	return ""
+	if n, ok := resAttr.Get(monitoringNamespaceKey); ok {
+		namespace = n.AsString()
+	}
+
+	// Routing key precedence:
+	// 1) use resource attrs only when both values are present and non-empty
+	// 2) otherwise use exporter config fallback only when both values are present and non-empty
+	if compartmentId != "" && namespace != "" {
+		return compartmentId, namespace, nil
+	}
+	if compIdCfg != "" && nsCfg != "" {
+		return compIdCfg, nsCfg, nil
+	}
+
+	return "", "", fmt.Errorf("missing required attributes %q and %q", monitoringCompartmentIdKey, monitoringNamespaceKey)
 }
 
 func numberDataPointValue(dp pmetric.NumberDataPoint) float64 {

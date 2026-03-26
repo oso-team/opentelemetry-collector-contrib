@@ -36,6 +36,39 @@ func TestConfigValidate(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "fallback_config_both_values_set",
+			cfg: Config{
+				Region:        "us-phoenix-1",
+				CompartmentId: "ocid1.compartment.oc1..aaaa",
+				Namespace:     "otel_demo",
+				Auth: configoptional.Some(configauth.Config{
+					AuthenticatorID: component.MustNewID("oraclecloudauth"),
+				}),
+			},
+		},
+		{
+			name: "fallback_config_missing_namespace",
+			cfg: Config{
+				Region:        "us-phoenix-1",
+				CompartmentId: "ocid1.compartment.oc1..aaaa",
+				Auth: configoptional.Some(configauth.Config{
+					AuthenticatorID: component.MustNewID("oraclecloudauth"),
+				}),
+			},
+			wantErr: true,
+		},
+		{
+			name: "fallback_config_missing_compartment_id",
+			cfg: Config{
+				Region:    "us-phoenix-1",
+				Namespace: "otel_demo",
+				Auth: configoptional.Some(configauth.Config{
+					AuthenticatorID: component.MustNewID("oraclecloudauth"),
+				}),
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
