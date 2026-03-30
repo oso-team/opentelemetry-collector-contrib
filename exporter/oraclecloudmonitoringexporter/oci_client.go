@@ -2,6 +2,7 @@ package oraclecloudmonitoringexporter
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -73,7 +74,7 @@ func resolveAuthExtensionProvider(cfg *Config, host component.Host) (common.Conf
 }
 
 func (c *oracleCloudMonitoringClient) SendMetrics(ctx context.Context, metricData []monitoring.MetricDataDetails) error {
-	_, err := c.client.PostMetricData(ctx, monitoring.PostMetricDataRequest{
+	resp, err := c.client.PostMetricData(ctx, monitoring.PostMetricDataRequest{
 		PostMetricDataDetails: monitoring.PostMetricDataDetails{
 			MetricData: metricData,
 		},
@@ -81,5 +82,28 @@ func (c *oracleCloudMonitoringClient) SendMetrics(ctx context.Context, metricDat
 	if err != nil {
 		return fmt.Errorf("PostMetricData failed: %w", err)
 	}
+
+	// request got accepted with failures
+	if resp.FailedMetricsCount != nil && *resp.FailedMetricsCount > 0 {
+		// no handling. drop
+	}
+
 	return nil
+}
+
+func isPermanentMonitoringError(err error) bool {
+	var serviceErr common.ServiceError
+	if !errors.As(err, &serviceErr) {
+		return false
+	}
+
+	status := serviceErr.GetHTTPStatusCode()
+	if status >= 500 {
+		return false
+	}
+	if status == 429 {
+		return false
+	}
+
+	return status >= 400 && status < 500
 }

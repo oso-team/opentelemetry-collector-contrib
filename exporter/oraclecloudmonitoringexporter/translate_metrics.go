@@ -27,7 +27,12 @@ func translateMetrics(md pmetric.Metrics, compIdCfg string, nsCfg string) ([]mon
 				switch m.Type() {
 				case pmetric.MetricTypeGauge:
 					if err := forEachNumberDataPoint(m.Gauge().DataPoints(), func(dp pmetric.NumberDataPoint) error {
-						detail, err := buildMetricDataDetails(m.Name(), resourceAttrs, dp.Attributes(), compIdCfg, nsCfg, numberDataPointValue(dp), dataPointTimestamp(dp.Timestamp()))
+						ts, ok := dataPointTimestamp(dp.Timestamp())
+						if !ok {
+							dropped++
+							return nil
+						}
+						detail, err := buildMetricDataDetails(m.Name(), resourceAttrs, dp.Attributes(), compIdCfg, nsCfg, numberDataPointValue(dp), ts)
 						if err != nil {
 							return err
 						}
@@ -38,7 +43,12 @@ func translateMetrics(md pmetric.Metrics, compIdCfg string, nsCfg string) ([]mon
 					}
 				case pmetric.MetricTypeSum:
 					if err := forEachNumberDataPoint(m.Sum().DataPoints(), func(dp pmetric.NumberDataPoint) error {
-						detail, err := buildMetricDataDetails(m.Name(), resourceAttrs, dp.Attributes(), compIdCfg, nsCfg, numberDataPointValue(dp), dataPointTimestamp(dp.Timestamp()))
+						ts, ok := dataPointTimestamp(dp.Timestamp())
+						if !ok {
+							dropped++
+							return nil
+						}
+						detail, err := buildMetricDataDetails(m.Name(), resourceAttrs, dp.Attributes(), compIdCfg, nsCfg, numberDataPointValue(dp), ts)
 						if err != nil {
 							return err
 						}
@@ -49,15 +59,20 @@ func translateMetrics(md pmetric.Metrics, compIdCfg string, nsCfg string) ([]mon
 					}
 				case pmetric.MetricTypeHistogram:
 					if err := forEachHistogramDataPoint(m.Histogram().DataPoints(), func(dp pmetric.HistogramDataPoint) error {
+						ts, ok := dataPointTimestamp(dp.Timestamp())
+						if !ok {
+							dropped++
+							return nil
+						}
 						// For histogram datapoints, emit count always and sum when present.
-						countDetail, err := buildMetricDataDetails(m.Name()+".count", resourceAttrs, dp.Attributes(), compIdCfg, nsCfg, float64(dp.Count()), dataPointTimestamp(dp.Timestamp()))
+						countDetail, err := buildMetricDataDetails(m.Name()+".count", resourceAttrs, dp.Attributes(), compIdCfg, nsCfg, float64(dp.Count()), ts)
 						if err != nil {
 							return err
 						}
 						out = append(out, countDetail)
 
 						if dp.HasSum() {
-							sumDetail, err := buildMetricDataDetails(m.Name()+".sum", resourceAttrs, dp.Attributes(), compIdCfg, nsCfg, dp.Sum(), dataPointTimestamp(dp.Timestamp()))
+							sumDetail, err := buildMetricDataDetails(m.Name()+".sum", resourceAttrs, dp.Attributes(), compIdCfg, nsCfg, dp.Sum(), ts)
 							if err != nil {
 								return err
 							}
@@ -69,15 +84,20 @@ func translateMetrics(md pmetric.Metrics, compIdCfg string, nsCfg string) ([]mon
 					}
 				case pmetric.MetricTypeExponentialHistogram:
 					if err := forEachExponentialHistogramDataPoint(m.ExponentialHistogram().DataPoints(), func(dp pmetric.ExponentialHistogramDataPoint) error {
+						ts, ok := dataPointTimestamp(dp.Timestamp())
+						if !ok {
+							dropped++
+							return nil
+						}
 						// For exponential histogram datapoints, emit count always and sum when present.
-						countDetail, err := buildMetricDataDetails(m.Name()+".count", resourceAttrs, dp.Attributes(), compIdCfg, nsCfg, float64(dp.Count()), dataPointTimestamp(dp.Timestamp()))
+						countDetail, err := buildMetricDataDetails(m.Name()+".count", resourceAttrs, dp.Attributes(), compIdCfg, nsCfg, float64(dp.Count()), ts)
 						if err != nil {
 							return err
 						}
 						out = append(out, countDetail)
 
 						if dp.HasSum() {
-							sumDetail, err := buildMetricDataDetails(m.Name()+".sum", resourceAttrs, dp.Attributes(), compIdCfg, nsCfg, dp.Sum(), dataPointTimestamp(dp.Timestamp()))
+							sumDetail, err := buildMetricDataDetails(m.Name()+".sum", resourceAttrs, dp.Attributes(), compIdCfg, nsCfg, dp.Sum(), ts)
 							if err != nil {
 								return err
 							}
@@ -171,8 +191,8 @@ func getRoutingValues(resAttr pcommon.Map, compIdCfg string, nsCfg string) (stri
 	}
 
 	// Routing key precedence:
-	// 1) use resource attrs only when both values are present and non-empty
-	// 2) otherwise use exporter config fallback only when both values are present and non-empty
+	// 1. use resource attrs only when both values are present and non-empty
+	// 2. otherwise use exporter config fallback only when both values are present and non-empty
 	if compartmentId != "" && namespace != "" {
 		return compartmentId, namespace, nil
 	}
@@ -192,19 +212,15 @@ func numberDataPointValue(dp pmetric.NumberDataPoint) float64 {
 	}
 }
 
-func dataPointTimestamp(ts pcommon.Timestamp) time.Time {
+func dataPointTimestamp(ts pcommon.Timestamp) (time.Time, bool) {
 	if ts == 0 {
-		return time.Now().UTC()
+		return time.Time{}, false
 	}
-	return time.Unix(0, int64(ts)).UTC()
+	return time.Unix(0, int64(ts)).UTC(), true
 }
 
 func estimateDroppedCount(metric pmetric.Metric) int {
 	switch metric.Type() {
-	case pmetric.MetricTypeHistogram:
-		return metric.Histogram().DataPoints().Len()
-	case pmetric.MetricTypeExponentialHistogram:
-		return metric.ExponentialHistogram().DataPoints().Len()
 	case pmetric.MetricTypeSummary:
 		return metric.Summary().DataPoints().Len()
 	default:

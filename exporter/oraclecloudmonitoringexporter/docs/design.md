@@ -372,13 +372,14 @@ Can follow the same approach as Histogram
 - Malformed histogram (bucket count mismatch, invalid bounds)
     - Drop datapoint, count/log reason
 - Missing timestamp
-    - Use now (UTC) fallback
+    - Drop datapoint, count/log reason
 - Invalid attribute key/value for backend constraints
     ```
     - PostMetricData timestamp window: datapoints must be within 2 hours past and 10 minutes future of current time.
     - Per-call limits: max 20 dimensions per metric group, max 50 unique metric streams, 50 TPS per tenancy for post operation. (A metric group is the combination of a given metric, metric namespace, and tenancy for the purpose of determining limits.)
     - Dimension validation: key must be printable ASCII (no spaces), key max 256 chars, value max 512 chars, keys/values cannot be empty.
     ```
+    Reference: [doc](https://docs.oracle.com/en-us/iaas/api/#/en/monitoring/20180401/MetricData/PostMetricData)
     - Drop offending datapoint or sanitize according to configured policy
 
 ## Rate Limit and Retry-Storm Handling

@@ -4,8 +4,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 )
+
+const testTimestamp = pcommon.Timestamp(1710000000000000000)
 
 func TestTranslateMetricsGauge(t *testing.T) {
 	md := pmetric.NewMetrics()
@@ -18,7 +21,7 @@ func TestTranslateMetricsGauge(t *testing.T) {
 	m := sm.Metrics().AppendEmpty()
 	m.SetName("cpu.utilization")
 	dp := m.SetEmptyGauge().DataPoints().AppendEmpty()
-	dp.SetTimestamp(1710000000000000000)
+	dp.SetTimestamp(testTimestamp)
 	dp.SetDoubleValue(12.5)
 	dp.Attributes().PutStr("host.name", "node-1")
 
@@ -45,6 +48,7 @@ func TestTranslateMetricsMissingAttributes(t *testing.T) {
 	m := sm.Metrics().AppendEmpty()
 	m.SetName("cpu.utilization")
 	dp := m.SetEmptyGauge().DataPoints().AppendEmpty()
+	dp.SetTimestamp(testTimestamp)
 	dp.SetDoubleValue(1)
 
 	_, _, err := translateMetrics(md, "", "")
@@ -63,6 +67,7 @@ func TestTranslateMetricsHistogramCountAndSum(t *testing.T) {
 	m.SetName("latency")
 	h := m.SetEmptyHistogram()
 	dp := h.DataPoints().AppendEmpty()
+	dp.SetTimestamp(testTimestamp)
 	dp.SetCount(5)
 	dp.SetSum(42.5)
 	dp.Attributes().PutStr("host.name", "node-1")
@@ -94,6 +99,7 @@ func TestTranslateMetricsHistogramCountOnlyWhenSumMissing(t *testing.T) {
 	m.SetName("request.duration")
 	h := m.SetEmptyHistogram()
 	dp := h.DataPoints().AppendEmpty()
+	dp.SetTimestamp(testTimestamp)
 	dp.SetCount(7)
 
 	data, dropped, err := translateMetrics(md, "", "")
@@ -116,6 +122,7 @@ func TestTranslateMetricsExponentialHistogramCountAndSum(t *testing.T) {
 	m.SetName("exp.latency")
 	eh := m.SetEmptyExponentialHistogram()
 	dp := eh.DataPoints().AppendEmpty()
+	dp.SetTimestamp(testTimestamp)
 	dp.SetCount(9)
 	dp.SetSum(100.5)
 	dp.Attributes().PutStr("host.name", "node-2")
@@ -147,6 +154,7 @@ func TestTranslateMetricsExponentialHistogramCountOnlyWhenSumMissing(t *testing.
 	m.SetName("exp.request.duration")
 	eh := m.SetEmptyExponentialHistogram()
 	dp := eh.DataPoints().AppendEmpty()
+	dp.SetTimestamp(testTimestamp)
 	dp.SetCount(4)
 
 	data, dropped, err := translateMetrics(md, "", "")
@@ -187,6 +195,7 @@ func TestTranslateMetricsLegacyMonitoringKeysNotReserved(t *testing.T) {
 	m := sm.Metrics().AppendEmpty()
 	m.SetName("cpu.utilization")
 	dp := m.SetEmptyGauge().DataPoints().AppendEmpty()
+	dp.SetTimestamp(testTimestamp)
 	dp.SetDoubleValue(12.5)
 
 	data, dropped, err := translateMetrics(md, "", "")
@@ -206,6 +215,7 @@ func TestTranslateMetricsFallsBackToConfigRouting(t *testing.T) {
 	m := sm.Metrics().AppendEmpty()
 	m.SetName("cpu.utilization")
 	dp := m.SetEmptyGauge().DataPoints().AppendEmpty()
+	dp.SetTimestamp(testTimestamp)
 	dp.SetDoubleValue(12.5)
 
 	data, dropped, err := translateMetrics(md, "ocid1.compartment.oc1..cfg", "cfg_ns")
@@ -226,6 +236,7 @@ func TestTranslateMetricsResourceRoutingOverridesConfig(t *testing.T) {
 	m := sm.Metrics().AppendEmpty()
 	m.SetName("cpu.utilization")
 	dp := m.SetEmptyGauge().DataPoints().AppendEmpty()
+	dp.SetTimestamp(testTimestamp)
 	dp.SetDoubleValue(1)
 
 	data, dropped, err := translateMetrics(md, "ocid1.compartment.oc1..cfg", "cfg_ns")
@@ -245,6 +256,7 @@ func TestTranslateMetricsUsesConfigWhenResourceRoutingIsPartial(t *testing.T) {
 	m := sm.Metrics().AppendEmpty()
 	m.SetName("cpu.utilization")
 	dp := m.SetEmptyGauge().DataPoints().AppendEmpty()
+	dp.SetTimestamp(testTimestamp)
 	dp.SetDoubleValue(1)
 
 	data, dropped, err := translateMetrics(md, "ocid1.compartment.oc1..cfg", "cfg_ns")
@@ -253,4 +265,22 @@ func TestTranslateMetricsUsesConfigWhenResourceRoutingIsPartial(t *testing.T) {
 	require.Len(t, data, 1)
 	require.Equal(t, "cfg_ns", *data[0].Namespace)
 	require.Equal(t, "ocid1.compartment.oc1..cfg", *data[0].CompartmentId)
+}
+
+func TestTranslateMetricsDropsMissingTimestamp(t *testing.T) {
+	md := pmetric.NewMetrics()
+	rm := md.ResourceMetrics().AppendEmpty()
+	rm.Resource().Attributes().PutStr("oracle_cloud.monitoring.compartment.id", "ocid1.compartment.oc1..aaaa")
+	rm.Resource().Attributes().PutStr("oracle_cloud.monitoring.namespace", "otel_demo")
+	sm := rm.ScopeMetrics().AppendEmpty()
+
+	m := sm.Metrics().AppendEmpty()
+	m.SetName("cpu.utilization")
+	dp := m.SetEmptyGauge().DataPoints().AppendEmpty()
+	dp.SetDoubleValue(10)
+
+	data, dropped, err := translateMetrics(md, "", "")
+	require.NoError(t, err)
+	require.Empty(t, data)
+	require.Equal(t, 1, dropped)
 }

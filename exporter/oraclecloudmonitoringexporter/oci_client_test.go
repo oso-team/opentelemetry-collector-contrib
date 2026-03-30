@@ -3,6 +3,7 @@ package oraclecloudmonitoringexporter
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/oraclecloudauthextension"
@@ -17,6 +18,7 @@ import (
 
 type fakeMonitoringClient struct {
 	lastRequest monitoring.PostMetricDataRequest
+	resp        monitoring.PostMetricDataResponse
 	err         error
 }
 
@@ -25,7 +27,34 @@ func (f *fakeMonitoringClient) PostMetricData(_ context.Context, request monitor
 	if f.err != nil {
 		return monitoring.PostMetricDataResponse{}, f.err
 	}
-	return monitoring.PostMetricDataResponse{}, nil
+	return f.resp, nil
+}
+
+type fakeServiceError struct {
+	statusCode int
+	code       string
+	message    string
+	opcReqID   string
+}
+
+func (e fakeServiceError) Error() string {
+	return e.message
+}
+
+func (e fakeServiceError) GetHTTPStatusCode() int {
+	return e.statusCode
+}
+
+func (e fakeServiceError) GetMessage() string {
+	return e.message
+}
+
+func (e fakeServiceError) GetCode() string {
+	return e.code
+}
+
+func (e fakeServiceError) GetOpcRequestID() string {
+	return e.opcReqID
 }
 
 type fakeHost struct {
@@ -71,6 +100,24 @@ func TestSendMetrics(t *testing.T) {
 	require.Len(t, fake.lastRequest.PostMetricDataDetails.MetricData, 1)
 }
 
+func TestSendMetricsPartialValidationFailure(t *testing.T) {
+	failed := 2
+	fake := &fakeMonitoringClient{
+		resp: monitoring.PostMetricDataResponse{
+			PostMetricDataResponseDetails: monitoring.PostMetricDataResponseDetails{
+				FailedMetricsCount: &failed,
+			},
+		},
+	}
+	client := &oracleCloudMonitoringClient{
+		logger: zap.NewNop(),
+		client: fake,
+	}
+
+	err := client.SendMetrics(t.Context(), []monitoring.MetricDataDetails{{}})
+	require.NoError(t, err)
+}
+
 func TestSendMetricsError(t *testing.T) {
 	fake := &fakeMonitoringClient{err: errors.New("boom")}
 	client := &oracleCloudMonitoringClient{
@@ -80,6 +127,76 @@ func TestSendMetricsError(t *testing.T) {
 
 	err := client.SendMetrics(t.Context(), []monitoring.MetricDataDetails{{}})
 	require.Error(t, err)
+}
+
+func TestIsPermanentMonitoringError(t *testing.T) {
+	tests := []struct {
+		name      string
+		err       error
+		permanent bool
+	}{
+		{
+			name: "bad request 400 is permanent",
+			err: fakeServiceError{
+				statusCode: 400,
+				code:       "InvalidParameter",
+				message:    "invalid",
+			},
+			permanent: true,
+		},
+		{
+			name: "unauthorized 401 is permanent",
+			err: fakeServiceError{
+				statusCode: 401,
+				code:       "NotAuthenticated",
+				message:    "auth",
+			},
+			permanent: true,
+		},
+		{
+			name: "forbidden 403 is permanent",
+			err: fakeServiceError{
+				statusCode: 403,
+				code:       "NotAuthorized",
+				message:    "forbidden",
+			},
+			permanent: true,
+		},
+		{
+			name: "too many requests 429 is retryable",
+			err: fakeServiceError{
+				statusCode: 429,
+				code:       "TooManyRequests",
+				message:    "throttled",
+			},
+			permanent: false,
+		},
+		{
+			name: "server error 500 is retryable",
+			err: fakeServiceError{
+				statusCode: 500,
+				code:       "InternalServerError",
+				message:    "server",
+			},
+			permanent: false,
+		},
+		{
+			name:      "non service error is retryable",
+			err:       errors.New("network timeout"),
+			permanent: false,
+		},
+		{
+			name:      "wrapped service error still detected",
+			err:       fmt.Errorf("wrapper: %w", fakeServiceError{statusCode: 404, code: "NotFound", message: "missing"}),
+			permanent: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.permanent, isPermanentMonitoringError(tt.err))
+		})
+	}
 }
 
 func TestResolveAuthExtensionProvider(t *testing.T) {
