@@ -54,34 +54,27 @@ exporters:
     region: us-phoenix-1
     auth:
       authenticator: oraclecloudauth
+      compartment_id: ocid1.compartment.oc1..aaaa
+      namespace: sample_namespace
 ```
 
 ## Configuration
 
-The exporter supports standard `exporterhelper` options:
+Retry behavior for metric ingestion:
 
-- `timeout`
-- `retry_on_failure`
-- `sending_queue`
+- `PostMetricData` retries are handled by OCI SDK internal retry policy
+  (`DefaultRetryPolicyWithoutEventualConsistency`).
+- In this mode, exporterhelper retry should not be relied on for send failures
+  because send errors are treated as permanent after SDK retry exhaustion.
 
-Example with queue and retry tuning:
+Oracle Cloud Monitoring request shaping behavior:
 
-```yaml
-exporters:
-  oraclecloudmonitoring:
-    region: us-phoenix-1
-    auth:
-      authenticator: oraclecloudauth
-    timeout: 30s
-    retry_on_failure:
-      enabled: true
-      initial_interval: 1s
-      max_interval: 30s
-      max_elapsed_time: 5m
-    sending_queue:
-      enabled: true
-      queue_size: 10000
-```
+- The exporter validates generated monitoring metric objects before send.
+- Metric objects with `0` effective dimensions or more than `20` effective
+  dimensions are dropped before ingestion.
+- Requests are split by unique monitoring metric stream identity and capped at `50`
+  unique streams per `PostMetricData` call to match the hard limit of `50`.
+- Split requests are sent sequentially within one export cycle.
 
 ## Required Metric Attributes
 
@@ -95,7 +88,8 @@ Attribute resolution order:
 1. resource attributes (`oracle_cloud.monitoring.*`)
 2. exporter config fallback (`compartment_id` and `namespace`)
 
-If either routing value is still missing, that datapoint is dropped.
+If both routing values cannot be resolved, metric translation fails and the
+export attempt returns an error.
 
 ## Dimensions and Reserved Keys
 
@@ -106,6 +100,24 @@ except reserved routing keys:
 - `oracle_cloud.monitoring.namespace`
 
 Reserved keys are used only for monitoring metric routing and are not emitted as dimensions.
+
+Because reserved routing keys are excluded from dimensions, they also do not count
+toward Oracle Cloud Monitoring's effective dimension limit.
+
+## Monitoring Limits and Batching
+
+Oracle Cloud Monitoring applies request-level limits to `PostMetricData`, including:
+
+- maximum `20` dimensions per metric group
+- maximum `50` unique metric streams per request
+- maximum `50` TPS per tenancy for this operation
+
+This exporter handles the first two limits locally by dropping over-limit metric
+objects and splitting requests by unique stream identity.
+
+The exporter does **not** coordinate request budgets across replicas. In distributed scenarios, user must size collector replicas and upstream
+batching so aggregate tenancy traffic stays within OCI TPS limits.
+
 
 ## Metric Type Coverage
 

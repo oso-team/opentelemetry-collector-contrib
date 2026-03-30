@@ -36,6 +36,10 @@ func translateMetrics(md pmetric.Metrics, compIdCfg string, nsCfg string) ([]mon
 						if err != nil {
 							return err
 						}
+						if !isDimensionsWithinLimit(detail) {
+							dropped++
+							return nil
+						}
 						out = append(out, detail)
 						return nil
 					}); err != nil {
@@ -51,6 +55,10 @@ func translateMetrics(md pmetric.Metrics, compIdCfg string, nsCfg string) ([]mon
 						detail, err := buildMetricDataDetails(m.Name(), resourceAttrs, dp.Attributes(), compIdCfg, nsCfg, numberDataPointValue(dp), ts)
 						if err != nil {
 							return err
+						}
+						if !isDimensionsWithinLimit(detail) {
+							dropped++
+							return nil
 						}
 						out = append(out, detail)
 						return nil
@@ -69,14 +77,22 @@ func translateMetrics(md pmetric.Metrics, compIdCfg string, nsCfg string) ([]mon
 						if err != nil {
 							return err
 						}
-						out = append(out, countDetail)
+						if isDimensionsWithinLimit(countDetail) {
+							out = append(out, countDetail)
+						} else {
+							dropped++
+						}
 
 						if dp.HasSum() {
 							sumDetail, err := buildMetricDataDetails(m.Name()+".sum", resourceAttrs, dp.Attributes(), compIdCfg, nsCfg, dp.Sum(), ts)
 							if err != nil {
 								return err
 							}
-							out = append(out, sumDetail)
+							if isDimensionsWithinLimit(sumDetail) {
+								out = append(out, sumDetail)
+							} else {
+								dropped++
+							}
 						}
 						return nil
 					}); err != nil {
@@ -94,14 +110,22 @@ func translateMetrics(md pmetric.Metrics, compIdCfg string, nsCfg string) ([]mon
 						if err != nil {
 							return err
 						}
-						out = append(out, countDetail)
+						if isDimensionsWithinLimit(countDetail) {
+							out = append(out, countDetail)
+						} else {
+							dropped++
+						}
 
 						if dp.HasSum() {
 							sumDetail, err := buildMetricDataDetails(m.Name()+".sum", resourceAttrs, dp.Attributes(), compIdCfg, nsCfg, dp.Sum(), ts)
 							if err != nil {
 								return err
 							}
-							out = append(out, sumDetail)
+							if isDimensionsWithinLimit(sumDetail) {
+								out = append(out, sumDetail)
+							} else {
+								dropped++
+							}
 						}
 						return nil
 					}); err != nil {

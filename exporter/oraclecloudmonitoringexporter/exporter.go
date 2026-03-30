@@ -32,26 +32,34 @@ func (e *metricsExporter) pushMetricsData(ctx context.Context, md pmetric.Metric
 		return consumererror.NewPermanent(errors.New("Monitoring client was not initialized"))
 	}
 
-	metricData, dropped, err := translateMetrics(md, e.cfg.CompartmentId, e.cfg.Namespace)
+	metricData, translationDropped, err := translateMetrics(md, e.cfg.CompartmentId, e.cfg.Namespace)
+	if translationDropped > 0 {
+		// e.logger.Debug("dropped metric datapoints during metric translation", zap.Int("dropped_datapoints", translationDropped))
+	}
 	if err != nil {
 		return consumererror.NewPermanent(fmt.Errorf("failed to translate metrics: %w", err))
 	}
-	if len(metricData) == 0 {
+	// batch metrics first to meet per call limit of metrics stream
+	batchedMetrics := buildMetricBatches(metricData)
+	if len(batchedMetrics.batches) == 0 {
 		return nil
 	}
 
-	if err := e.client.SendMetrics(ctx, metricData); err != nil {
-		sendErr := fmt.Errorf("failed to send metrics to Oracle Cloud Monitoring: %w", err)
-		if isPermanentMonitoringError(err) {
+	if len(batchedMetrics.batches) > 1 {
+		// e.logger.Debug("split metrics into multiple ingestion requests", zap.Int("batched_requests", len(batchedMetrics.batches)))
+	}
+
+	// Send batches sequentially
+	for i, batch := range batchedMetrics.batches {
+		if err := e.client.SendMetrics(ctx, batch); err != nil {
+			sendErr := fmt.Errorf("failed to send metrics to Oracle Cloud Monitoring: %w", err)
 			return consumererror.NewPermanent(sendErr)
 		}
-		return sendErr
+
+		if len(batchedMetrics.batches) > 1 {
+			e.logger.Debug("sent monitoring request", zap.Int("request_index", i+1))
+		}
 	}
 
-	if dropped == 0 {
-		return nil
-	}
-
-	e.logger.Debug("dropped unsupported metric datapoints during metric translation", zap.Int("dropped_datapoints", dropped))
 	return nil
 }

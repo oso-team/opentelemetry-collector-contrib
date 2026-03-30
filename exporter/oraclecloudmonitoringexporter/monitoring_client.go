@@ -2,7 +2,6 @@ package oraclecloudmonitoringexporter
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -74,9 +73,13 @@ func resolveAuthExtensionProvider(cfg *Config, host component.Host) (common.Conf
 }
 
 func (c *oracleCloudMonitoringClient) SendMetrics(ctx context.Context, metricData []monitoring.MetricDataDetails) error {
+	retryPolicy := common.DefaultRetryPolicyWithoutEventualConsistency()
 	resp, err := c.client.PostMetricData(ctx, monitoring.PostMetricDataRequest{
 		PostMetricDataDetails: monitoring.PostMetricDataDetails{
 			MetricData: metricData,
+		},
+		RequestMetadata: common.RequestMetadata{
+			RetryPolicy: &retryPolicy,
 		},
 	})
 	if err != nil {
@@ -85,25 +88,12 @@ func (c *oracleCloudMonitoringClient) SendMetrics(ctx context.Context, metricDat
 
 	// request got accepted with failures
 	if resp.FailedMetricsCount != nil && *resp.FailedMetricsCount > 0 {
-		// no handling. drop
+		fields := []zap.Field{zap.Int("failed_metrics_count", *resp.FailedMetricsCount)}
+		if resp.OpcRequestId != nil && *resp.OpcRequestId != "" {
+			fields = append(fields, zap.String("opc_request_id", *resp.OpcRequestId))
+		}
+		c.logger.Warn("monitoring accepted request with failed metric validations", fields...)
 	}
 
 	return nil
-}
-
-func isPermanentMonitoringError(err error) bool {
-	var serviceErr common.ServiceError
-	if !errors.As(err, &serviceErr) {
-		return false
-	}
-
-	status := serviceErr.GetHTTPStatusCode()
-	if status >= 500 {
-		return false
-	}
-	if status == 429 {
-		return false
-	}
-
-	return status >= 400 && status < 500
 }

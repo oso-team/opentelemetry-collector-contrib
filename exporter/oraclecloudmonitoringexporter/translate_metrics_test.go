@@ -1,6 +1,7 @@
 package oraclecloudmonitoringexporter
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -101,6 +102,7 @@ func TestTranslateMetricsHistogramCountOnlyWhenSumMissing(t *testing.T) {
 	dp := h.DataPoints().AppendEmpty()
 	dp.SetTimestamp(testTimestamp)
 	dp.SetCount(7)
+	dp.Attributes().PutStr("host.name", "node-1")
 
 	data, dropped, err := translateMetrics(md, "", "")
 	require.NoError(t, err)
@@ -156,6 +158,7 @@ func TestTranslateMetricsExponentialHistogramCountOnlyWhenSumMissing(t *testing.
 	dp := eh.DataPoints().AppendEmpty()
 	dp.SetTimestamp(testTimestamp)
 	dp.SetCount(4)
+	dp.Attributes().PutStr("host.name", "node-2")
 
 	data, dropped, err := translateMetrics(md, "", "")
 	require.NoError(t, err)
@@ -206,6 +209,28 @@ func TestTranslateMetricsLegacyMonitoringKeysNotReserved(t *testing.T) {
 	require.Equal(t, "legacy-compartment", data[0].Dimensions["monitoring_compartment_id"])
 }
 
+func TestTranslateMetricsDropsOverLimitDimensions(t *testing.T) {
+	md := pmetric.NewMetrics()
+	rm := md.ResourceMetrics().AppendEmpty()
+	rm.Resource().Attributes().PutStr("oracle_cloud.monitoring.compartment.id", "ocid1.compartment.oc1..aaaa")
+	rm.Resource().Attributes().PutStr("oracle_cloud.monitoring.namespace", "otel_demo")
+	sm := rm.ScopeMetrics().AppendEmpty()
+
+	m := sm.Metrics().AppendEmpty()
+	m.SetName("cpu.utilization")
+	dp := m.SetEmptyGauge().DataPoints().AppendEmpty()
+	dp.SetTimestamp(testTimestamp)
+	dp.SetDoubleValue(12.5)
+	for i := 0; i < maxDimensionsPerMetric+1; i++ {
+		dp.Attributes().PutStr(fmt.Sprintf("dim.%02d", i), "value")
+	}
+
+	data, dropped, err := translateMetrics(md, "", "")
+	require.NoError(t, err)
+	require.Empty(t, data)
+	require.Equal(t, 1, dropped)
+}
+
 func TestTranslateMetricsFallsBackToConfigRouting(t *testing.T) {
 	md := pmetric.NewMetrics()
 	rm := md.ResourceMetrics().AppendEmpty()
@@ -238,6 +263,7 @@ func TestTranslateMetricsResourceRoutingOverridesConfig(t *testing.T) {
 	dp := m.SetEmptyGauge().DataPoints().AppendEmpty()
 	dp.SetTimestamp(testTimestamp)
 	dp.SetDoubleValue(1)
+	dp.Attributes().PutStr("host.name", "node-1")
 
 	data, dropped, err := translateMetrics(md, "ocid1.compartment.oc1..cfg", "cfg_ns")
 	require.NoError(t, err)
@@ -258,6 +284,7 @@ func TestTranslateMetricsUsesConfigWhenResourceRoutingIsPartial(t *testing.T) {
 	dp := m.SetEmptyGauge().DataPoints().AppendEmpty()
 	dp.SetTimestamp(testTimestamp)
 	dp.SetDoubleValue(1)
+	dp.Attributes().PutStr("host.name", "node-1")
 
 	data, dropped, err := translateMetrics(md, "ocid1.compartment.oc1..cfg", "cfg_ns")
 	require.NoError(t, err)
