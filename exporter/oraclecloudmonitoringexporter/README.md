@@ -33,10 +33,16 @@ The following settings are required:
   `us-phoenix-1`).
 - `auth.authenticator`: ID of an `oraclecloudauthextension` instance.
 
-Optional routing fallback settings:
+Optional routing and fallback settings:
 
 - `compartment_id`: default compartment id when resource routing attribute is absent.
 - `namespace`: default namespace when resource routing attribute is absent.
+- `max_past_timestamp_skew`: maximum allowed age for datapoint timestamps before
+  the exporter drops them. Default: `2h`. This value cannot be set higher than
+  Oracle Monitoring ingestion limit.
+- `max_future_timestamp_skew`: maximum allowed future skew for datapoint
+  timestamps before the exporter drops them. Default: `10m`. This value cannot
+  be set higher than Oracle Monitoring ingestion limit.
 
 `compartment_id` and `namespace` must be configured together if set.
 
@@ -54,8 +60,10 @@ exporters:
     region: us-phoenix-1
     auth:
       authenticator: oraclecloudauth
-      compartment_id: ocid1.compartment.oc1..aaaa
-      namespace: sample_namespace
+    compartment_id: ocid1.compartment.oc1..aaaa
+    namespace: sample_namespace
+    max_past_timestamp_skew: 2h
+    max_future_timestamp_skew: 10m
 ```
 
 ## Configuration
@@ -64,14 +72,17 @@ Retry behavior for metric ingestion:
 
 - `PostMetricData` retries are handled by OCI SDK internal retry policy
   (`DefaultRetryPolicyWithoutEventualConsistency`).
-- In this mode, exporterhelper retry should not be relied on for send failures
-  because send errors are treated as permanent after SDK retry exhaustion.
 
 Oracle Cloud Monitoring request shaping behavior:
 
 - The exporter validates generated monitoring metric objects before send.
-- Metric objects with `0` effective dimensions or more than `20` effective
-  dimensions are dropped before ingestion.
+- Datapoints are dropped when timestamps are missing, older than
+  `now - max_past_timestamp_skew`, or newer than
+  `now + max_future_timestamp_skew`.
+- Metric objects are dropped before ingestion when effective dimensions are empty,
+  exceed `20`, have empty keys or values, have keys longer than `256` chars,
+  have values longer than `512` chars, or use dimension keys outside printable
+  ASCII without spaces.
 - Requests are split by unique monitoring metric stream identity and capped at `50`
   unique streams per `PostMetricData` call to match the hard limit of `50`.
 - Split requests are sent sequentially within one export cycle.
@@ -114,10 +125,6 @@ Oracle Cloud Monitoring applies request-level limits to `PostMetricData`, includ
 
 This exporter handles the first two limits locally by dropping over-limit metric
 objects and splitting requests by unique stream identity.
-
-The exporter does **not** coordinate request budgets across replicas. In distributed scenarios, user must size collector replicas and upstream
-batching so aggregate tenancy traffic stays within OCI TPS limits.
-
 
 ## Metric Type Coverage
 

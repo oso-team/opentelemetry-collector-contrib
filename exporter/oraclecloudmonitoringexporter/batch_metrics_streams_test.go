@@ -2,6 +2,7 @@ package oraclecloudmonitoringexporter
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/oracle/oci-go-sdk/v65/common"
@@ -70,6 +71,66 @@ func TestPlanMetricBatchesSupportsMixedRoutingValues(t *testing.T) {
 	require.Len(t, planned.batches, 1)
 	require.Len(t, planned.batches[0], 2)
 	require.NotEqual(t, buildStreamKey(planned.batches[0][0]), buildStreamKey(planned.batches[0][1]))
+}
+
+func TestIsMetricDimensionsValid(t *testing.T) {
+	tests := []struct {
+		name       string
+		dimensions map[string]string
+		want       bool
+	}{
+		{
+			name:       "valid_dimensions",
+			dimensions: map[string]string{"service.name": "checkout"},
+			want:       true,
+		},
+		{
+			name:       "empty_key",
+			dimensions: map[string]string{"": "checkout"},
+			want:       false,
+		},
+		{
+			name:       "key_with_space",
+			dimensions: map[string]string{"service name": "checkout"},
+			want:       false,
+		},
+		{
+			name:       "key_with_non_ascii",
+			dimensions: map[string]string{"service.namé": "checkout"},
+			want:       false,
+		},
+		{
+			name:       "key_too_long",
+			dimensions: map[string]string{strings.Repeat("a", maxDimensionKeyLength+1): "checkout"},
+			want:       false,
+		},
+		{
+			name:       "key_at_limit",
+			dimensions: map[string]string{strings.Repeat("a", maxDimensionKeyLength): "checkout"},
+			want:       true,
+		},
+		{
+			name:       "empty_value",
+			dimensions: map[string]string{"service.name": ""},
+			want:       false,
+		},
+		{
+			name:       "value_too_long",
+			dimensions: map[string]string{"service.name": strings.Repeat("a", maxDimensionValueLength+1)},
+			want:       false,
+		},
+		{
+			name:       "value_at_limit",
+			dimensions: map[string]string{"service.name": strings.Repeat("a", maxDimensionValueLength)},
+			want:       true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, isMetricDimensionsValid(testMetricDataDetail("metric.cpu", tt.dimensions)))
+		})
+	}
 }
 
 func testMetricDataDetail(name string, dimensions map[string]string) monitoring.MetricDataDetails {

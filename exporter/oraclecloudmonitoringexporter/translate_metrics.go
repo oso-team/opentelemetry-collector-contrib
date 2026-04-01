@@ -10,9 +10,16 @@ import (
 	"go.opentelemetry.io/collector/pdata/pmetric"
 )
 
-func translateMetrics(md pmetric.Metrics, compIdCfg string, nsCfg string) ([]monitoring.MetricDataDetails, int, error) {
+func translateMetrics(
+	md pmetric.Metrics,
+	compIdCfg string,
+	nsCfg string,
+	maxPastTimestampSkew time.Duration,
+	maxFutureTimestampSkew time.Duration,
+) ([]monitoring.MetricDataDetails, int, error) {
 	out := make([]monitoring.MetricDataDetails, 0)
 	dropped := 0
+	now := time.Now().UTC()
 
 	resourceMetrics := md.ResourceMetrics()
 	for i := 0; i < resourceMetrics.Len(); i++ {
@@ -27,7 +34,7 @@ func translateMetrics(md pmetric.Metrics, compIdCfg string, nsCfg string) ([]mon
 				switch m.Type() {
 				case pmetric.MetricTypeGauge:
 					if err := forEachNumberDataPoint(m.Gauge().DataPoints(), func(dp pmetric.NumberDataPoint) error {
-						ts, ok := dataPointTimestamp(dp.Timestamp())
+						ts, ok := dataPointTimestamp(dp.Timestamp(), now, maxPastTimestampSkew, maxFutureTimestampSkew)
 						if !ok {
 							dropped++
 							return nil
@@ -36,7 +43,7 @@ func translateMetrics(md pmetric.Metrics, compIdCfg string, nsCfg string) ([]mon
 						if err != nil {
 							return err
 						}
-						if !isDimensionsWithinLimit(detail) {
+						if !isMetricDimensionsValid(detail) {
 							dropped++
 							return nil
 						}
@@ -47,7 +54,7 @@ func translateMetrics(md pmetric.Metrics, compIdCfg string, nsCfg string) ([]mon
 					}
 				case pmetric.MetricTypeSum:
 					if err := forEachNumberDataPoint(m.Sum().DataPoints(), func(dp pmetric.NumberDataPoint) error {
-						ts, ok := dataPointTimestamp(dp.Timestamp())
+						ts, ok := dataPointTimestamp(dp.Timestamp(), now, maxPastTimestampSkew, maxFutureTimestampSkew)
 						if !ok {
 							dropped++
 							return nil
@@ -56,7 +63,7 @@ func translateMetrics(md pmetric.Metrics, compIdCfg string, nsCfg string) ([]mon
 						if err != nil {
 							return err
 						}
-						if !isDimensionsWithinLimit(detail) {
+						if !isMetricDimensionsValid(detail) {
 							dropped++
 							return nil
 						}
@@ -67,7 +74,7 @@ func translateMetrics(md pmetric.Metrics, compIdCfg string, nsCfg string) ([]mon
 					}
 				case pmetric.MetricTypeHistogram:
 					if err := forEachHistogramDataPoint(m.Histogram().DataPoints(), func(dp pmetric.HistogramDataPoint) error {
-						ts, ok := dataPointTimestamp(dp.Timestamp())
+						ts, ok := dataPointTimestamp(dp.Timestamp(), now, maxPastTimestampSkew, maxFutureTimestampSkew)
 						if !ok {
 							dropped++
 							return nil
@@ -77,7 +84,7 @@ func translateMetrics(md pmetric.Metrics, compIdCfg string, nsCfg string) ([]mon
 						if err != nil {
 							return err
 						}
-						if isDimensionsWithinLimit(countDetail) {
+						if isMetricDimensionsValid(countDetail) {
 							out = append(out, countDetail)
 						} else {
 							dropped++
@@ -88,7 +95,7 @@ func translateMetrics(md pmetric.Metrics, compIdCfg string, nsCfg string) ([]mon
 							if err != nil {
 								return err
 							}
-							if isDimensionsWithinLimit(sumDetail) {
+							if isMetricDimensionsValid(sumDetail) {
 								out = append(out, sumDetail)
 							} else {
 								dropped++
@@ -100,7 +107,7 @@ func translateMetrics(md pmetric.Metrics, compIdCfg string, nsCfg string) ([]mon
 					}
 				case pmetric.MetricTypeExponentialHistogram:
 					if err := forEachExponentialHistogramDataPoint(m.ExponentialHistogram().DataPoints(), func(dp pmetric.ExponentialHistogramDataPoint) error {
-						ts, ok := dataPointTimestamp(dp.Timestamp())
+						ts, ok := dataPointTimestamp(dp.Timestamp(), now, maxPastTimestampSkew, maxFutureTimestampSkew)
 						if !ok {
 							dropped++
 							return nil
@@ -110,7 +117,7 @@ func translateMetrics(md pmetric.Metrics, compIdCfg string, nsCfg string) ([]mon
 						if err != nil {
 							return err
 						}
-						if isDimensionsWithinLimit(countDetail) {
+						if isMetricDimensionsValid(countDetail) {
 							out = append(out, countDetail)
 						} else {
 							dropped++
@@ -121,7 +128,7 @@ func translateMetrics(md pmetric.Metrics, compIdCfg string, nsCfg string) ([]mon
 							if err != nil {
 								return err
 							}
-							if isDimensionsWithinLimit(sumDetail) {
+							if isMetricDimensionsValid(sumDetail) {
 								out = append(out, sumDetail)
 							} else {
 								dropped++
@@ -236,11 +243,17 @@ func numberDataPointValue(dp pmetric.NumberDataPoint) float64 {
 	}
 }
 
-func dataPointTimestamp(ts pcommon.Timestamp) (time.Time, bool) {
+func dataPointTimestamp(ts pcommon.Timestamp, now time.Time, maxPastTimestampSkew time.Duration, maxFutureTimestampSkew time.Duration) (time.Time, bool) {
 	if ts == 0 {
 		return time.Time{}, false
 	}
-	return time.Unix(0, int64(ts)).UTC(), true
+
+	datapointTime := time.Unix(0, int64(ts)).UTC()
+	if datapointTime.Before(now.Add(-maxPastTimestampSkew)) || datapointTime.After(now.Add(maxFutureTimestampSkew)) {
+		return time.Time{}, false
+	}
+
+	return datapointTime, true
 }
 
 func estimateDroppedCount(metric pmetric.Metric) int {

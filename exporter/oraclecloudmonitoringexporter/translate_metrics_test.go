@@ -2,14 +2,35 @@ package oraclecloudmonitoringexporter
 
 import (
 	"fmt"
+	"strings"
 	"testing"
+	"time"
 
+	"github.com/oracle/oci-go-sdk/v65/monitoring"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 )
 
-const testTimestamp = pcommon.Timestamp(1710000000000000000)
+var testTimestampMargin = 5 * time.Second
+
+func translateMetricsForTest(md pmetric.Metrics, compIdCfg string, nsCfg string) ([]monitoring.MetricDataDetails, int, error) {
+	return translateMetrics(
+		md,
+		compIdCfg,
+		nsCfg,
+		defaultMaxPastTimestampSkew,
+		defaultMaxFutureTimestampSkew,
+	)
+}
+
+func testTimestamp() pcommon.Timestamp {
+	return pcommon.Timestamp(time.Now().Add(-time.Minute).UnixNano())
+}
+
+func testTimestampAt(offset time.Duration) pcommon.Timestamp {
+	return pcommon.Timestamp(time.Now().Add(offset).UnixNano())
+}
 
 func TestTranslateMetricsGauge(t *testing.T) {
 	md := pmetric.NewMetrics()
@@ -22,11 +43,11 @@ func TestTranslateMetricsGauge(t *testing.T) {
 	m := sm.Metrics().AppendEmpty()
 	m.SetName("cpu.utilization")
 	dp := m.SetEmptyGauge().DataPoints().AppendEmpty()
-	dp.SetTimestamp(testTimestamp)
+	dp.SetTimestamp(testTimestamp())
 	dp.SetDoubleValue(12.5)
 	dp.Attributes().PutStr("host.name", "node-1")
 
-	data, dropped, err := translateMetrics(md, "", "")
+	data, dropped, err := translateMetricsForTest(md, "", "")
 	require.NoError(t, err)
 	require.Equal(t, 0, dropped)
 	require.Len(t, data, 1)
@@ -49,10 +70,10 @@ func TestTranslateMetricsMissingAttributes(t *testing.T) {
 	m := sm.Metrics().AppendEmpty()
 	m.SetName("cpu.utilization")
 	dp := m.SetEmptyGauge().DataPoints().AppendEmpty()
-	dp.SetTimestamp(testTimestamp)
+	dp.SetTimestamp(testTimestamp())
 	dp.SetDoubleValue(1)
 
-	_, _, err := translateMetrics(md, "", "")
+	_, _, err := translateMetricsForTest(md, "", "")
 	require.Error(t, err)
 }
 
@@ -68,12 +89,12 @@ func TestTranslateMetricsHistogramCountAndSum(t *testing.T) {
 	m.SetName("latency")
 	h := m.SetEmptyHistogram()
 	dp := h.DataPoints().AppendEmpty()
-	dp.SetTimestamp(testTimestamp)
+	dp.SetTimestamp(testTimestamp())
 	dp.SetCount(5)
 	dp.SetSum(42.5)
 	dp.Attributes().PutStr("host.name", "node-1")
 
-	data, dropped, err := translateMetrics(md, "", "")
+	data, dropped, err := translateMetricsForTest(md, "", "")
 	require.NoError(t, err)
 	require.Equal(t, 0, dropped)
 	require.Len(t, data, 2)
@@ -94,17 +115,18 @@ func TestTranslateMetricsHistogramCountOnlyWhenSumMissing(t *testing.T) {
 	rm := md.ResourceMetrics().AppendEmpty()
 	rm.Resource().Attributes().PutStr("oracle_cloud.monitoring.compartment.id", "ocid1.compartment.oc1..aaaa")
 	rm.Resource().Attributes().PutStr("oracle_cloud.monitoring.namespace", "otel_demo")
+	rm.Resource().Attributes().PutStr("service.name", "checkout")
 	sm := rm.ScopeMetrics().AppendEmpty()
 
 	m := sm.Metrics().AppendEmpty()
 	m.SetName("request.duration")
 	h := m.SetEmptyHistogram()
 	dp := h.DataPoints().AppendEmpty()
-	dp.SetTimestamp(testTimestamp)
+	dp.SetTimestamp(testTimestamp())
 	dp.SetCount(7)
 	dp.Attributes().PutStr("host.name", "node-1")
 
-	data, dropped, err := translateMetrics(md, "", "")
+	data, dropped, err := translateMetricsForTest(md, "", "")
 	require.NoError(t, err)
 	require.Equal(t, 0, dropped)
 	require.Len(t, data, 1)
@@ -124,12 +146,12 @@ func TestTranslateMetricsExponentialHistogramCountAndSum(t *testing.T) {
 	m.SetName("exp.latency")
 	eh := m.SetEmptyExponentialHistogram()
 	dp := eh.DataPoints().AppendEmpty()
-	dp.SetTimestamp(testTimestamp)
+	dp.SetTimestamp(testTimestamp())
 	dp.SetCount(9)
 	dp.SetSum(100.5)
 	dp.Attributes().PutStr("host.name", "node-2")
 
-	data, dropped, err := translateMetrics(md, "", "")
+	data, dropped, err := translateMetricsForTest(md, "", "")
 	require.NoError(t, err)
 	require.Equal(t, 0, dropped)
 	require.Len(t, data, 2)
@@ -150,17 +172,18 @@ func TestTranslateMetricsExponentialHistogramCountOnlyWhenSumMissing(t *testing.
 	rm := md.ResourceMetrics().AppendEmpty()
 	rm.Resource().Attributes().PutStr("oracle_cloud.monitoring.compartment.id", "ocid1.compartment.oc1..aaaa")
 	rm.Resource().Attributes().PutStr("oracle_cloud.monitoring.namespace", "otel_demo")
+	rm.Resource().Attributes().PutStr("service.name", "checkout")
 	sm := rm.ScopeMetrics().AppendEmpty()
 
 	m := sm.Metrics().AppendEmpty()
 	m.SetName("exp.request.duration")
 	eh := m.SetEmptyExponentialHistogram()
 	dp := eh.DataPoints().AppendEmpty()
-	dp.SetTimestamp(testTimestamp)
+	dp.SetTimestamp(testTimestamp())
 	dp.SetCount(4)
 	dp.Attributes().PutStr("host.name", "node-2")
 
-	data, dropped, err := translateMetrics(md, "", "")
+	data, dropped, err := translateMetricsForTest(md, "", "")
 	require.NoError(t, err)
 	require.Equal(t, 0, dropped)
 	require.Len(t, data, 1)
@@ -173,6 +196,7 @@ func TestTranslateMetricsDropsUnsupported(t *testing.T) {
 	rm := md.ResourceMetrics().AppendEmpty()
 	rm.Resource().Attributes().PutStr("oracle_cloud.monitoring.compartment.id", "ocid1.compartment.oc1..aaaa")
 	rm.Resource().Attributes().PutStr("oracle_cloud.monitoring.namespace", "otel_demo")
+	rm.Resource().Attributes().PutStr("service.name", "checkout")
 	sm := rm.ScopeMetrics().AppendEmpty()
 
 	m := sm.Metrics().AppendEmpty()
@@ -180,7 +204,7 @@ func TestTranslateMetricsDropsUnsupported(t *testing.T) {
 	s := m.SetEmptySummary()
 	s.DataPoints().AppendEmpty()
 
-	data, dropped, err := translateMetrics(md, "", "")
+	data, dropped, err := translateMetricsForTest(md, "", "")
 	require.NoError(t, err)
 	require.Empty(t, data)
 	require.Equal(t, 1, dropped)
@@ -198,10 +222,10 @@ func TestTranslateMetricsLegacyMonitoringKeysNotReserved(t *testing.T) {
 	m := sm.Metrics().AppendEmpty()
 	m.SetName("cpu.utilization")
 	dp := m.SetEmptyGauge().DataPoints().AppendEmpty()
-	dp.SetTimestamp(testTimestamp)
+	dp.SetTimestamp(testTimestamp())
 	dp.SetDoubleValue(12.5)
 
-	data, dropped, err := translateMetrics(md, "", "")
+	data, dropped, err := translateMetricsForTest(md, "", "")
 	require.NoError(t, err)
 	require.Equal(t, 0, dropped)
 	require.Len(t, data, 1)
@@ -214,21 +238,108 @@ func TestTranslateMetricsDropsOverLimitDimensions(t *testing.T) {
 	rm := md.ResourceMetrics().AppendEmpty()
 	rm.Resource().Attributes().PutStr("oracle_cloud.monitoring.compartment.id", "ocid1.compartment.oc1..aaaa")
 	rm.Resource().Attributes().PutStr("oracle_cloud.monitoring.namespace", "otel_demo")
+	rm.Resource().Attributes().PutStr("service.name", "checkout")
 	sm := rm.ScopeMetrics().AppendEmpty()
 
 	m := sm.Metrics().AppendEmpty()
 	m.SetName("cpu.utilization")
 	dp := m.SetEmptyGauge().DataPoints().AppendEmpty()
-	dp.SetTimestamp(testTimestamp)
+	dp.SetTimestamp(testTimestamp())
 	dp.SetDoubleValue(12.5)
 	for i := 0; i < maxDimensionsPerMetric+1; i++ {
 		dp.Attributes().PutStr(fmt.Sprintf("dim.%02d", i), "value")
 	}
 
-	data, dropped, err := translateMetrics(md, "", "")
+	data, dropped, err := translateMetricsForTest(md, "", "")
 	require.NoError(t, err)
 	require.Empty(t, data)
 	require.Equal(t, 1, dropped)
+}
+
+func TestTranslateMetricsDropsInvalidDimensionKeys(t *testing.T) {
+	tests := []struct {
+		name         string
+		dimensionKey string
+	}{
+		{
+			name:         "empty_key",
+			dimensionKey: "",
+		},
+		{
+			name:         "key_with_space",
+			dimensionKey: "service name",
+		},
+		{
+			name:         "key_with_non_ascii",
+			dimensionKey: "service.namé",
+		},
+		{
+			name:         "key_too_long",
+			dimensionKey: strings.Repeat("a", maxDimensionKeyLength+1),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			md := pmetric.NewMetrics()
+			rm := md.ResourceMetrics().AppendEmpty()
+			rm.Resource().Attributes().PutStr("oracle_cloud.monitoring.compartment.id", "ocid1.compartment.oc1..aaaa")
+			rm.Resource().Attributes().PutStr("oracle_cloud.monitoring.namespace", "otel_demo")
+			rm.Resource().Attributes().PutStr("service.name", "checkout")
+			sm := rm.ScopeMetrics().AppendEmpty()
+
+			m := sm.Metrics().AppendEmpty()
+			m.SetName("cpu.utilization")
+			dp := m.SetEmptyGauge().DataPoints().AppendEmpty()
+			dp.SetTimestamp(testTimestamp())
+			dp.SetDoubleValue(12.5)
+			dp.Attributes().PutStr(tt.dimensionKey, "value")
+
+			data, dropped, err := translateMetricsForTest(md, "", "")
+			require.NoError(t, err)
+			require.Empty(t, data)
+			require.Equal(t, 1, dropped)
+		})
+	}
+}
+
+func TestTranslateMetricsDropsInvalidDimensionValues(t *testing.T) {
+	tests := []struct {
+		name           string
+		dimensionValue string
+	}{
+		{
+			name:           "empty_value",
+			dimensionValue: "",
+		},
+		{
+			name:           "value_too_long",
+			dimensionValue: strings.Repeat("a", maxDimensionValueLength+1),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			md := pmetric.NewMetrics()
+			rm := md.ResourceMetrics().AppendEmpty()
+			rm.Resource().Attributes().PutStr("oracle_cloud.monitoring.compartment.id", "ocid1.compartment.oc1..aaaa")
+			rm.Resource().Attributes().PutStr("oracle_cloud.monitoring.namespace", "otel_demo")
+			rm.Resource().Attributes().PutStr("service.name", "checkout")
+			sm := rm.ScopeMetrics().AppendEmpty()
+
+			m := sm.Metrics().AppendEmpty()
+			m.SetName("cpu.utilization")
+			dp := m.SetEmptyGauge().DataPoints().AppendEmpty()
+			dp.SetTimestamp(testTimestamp())
+			dp.SetDoubleValue(12.5)
+			dp.Attributes().PutStr("host.name", tt.dimensionValue)
+
+			data, dropped, err := translateMetricsForTest(md, "", "")
+			require.NoError(t, err)
+			require.Empty(t, data)
+			require.Equal(t, 1, dropped)
+		})
+	}
 }
 
 func TestTranslateMetricsFallsBackToConfigRouting(t *testing.T) {
@@ -240,10 +351,10 @@ func TestTranslateMetricsFallsBackToConfigRouting(t *testing.T) {
 	m := sm.Metrics().AppendEmpty()
 	m.SetName("cpu.utilization")
 	dp := m.SetEmptyGauge().DataPoints().AppendEmpty()
-	dp.SetTimestamp(testTimestamp)
+	dp.SetTimestamp(testTimestamp())
 	dp.SetDoubleValue(12.5)
 
-	data, dropped, err := translateMetrics(md, "ocid1.compartment.oc1..cfg", "cfg_ns")
+	data, dropped, err := translateMetricsForTest(md, "ocid1.compartment.oc1..cfg", "cfg_ns")
 	require.NoError(t, err)
 	require.Equal(t, 0, dropped)
 	require.Len(t, data, 1)
@@ -261,11 +372,11 @@ func TestTranslateMetricsResourceRoutingOverridesConfig(t *testing.T) {
 	m := sm.Metrics().AppendEmpty()
 	m.SetName("cpu.utilization")
 	dp := m.SetEmptyGauge().DataPoints().AppendEmpty()
-	dp.SetTimestamp(testTimestamp)
+	dp.SetTimestamp(testTimestamp())
 	dp.SetDoubleValue(1)
 	dp.Attributes().PutStr("host.name", "node-1")
 
-	data, dropped, err := translateMetrics(md, "ocid1.compartment.oc1..cfg", "cfg_ns")
+	data, dropped, err := translateMetricsForTest(md, "ocid1.compartment.oc1..cfg", "cfg_ns")
 	require.NoError(t, err)
 	require.Equal(t, 0, dropped)
 	require.Len(t, data, 1)
@@ -282,11 +393,11 @@ func TestTranslateMetricsUsesConfigWhenResourceRoutingIsPartial(t *testing.T) {
 	m := sm.Metrics().AppendEmpty()
 	m.SetName("cpu.utilization")
 	dp := m.SetEmptyGauge().DataPoints().AppendEmpty()
-	dp.SetTimestamp(testTimestamp)
+	dp.SetTimestamp(testTimestamp())
 	dp.SetDoubleValue(1)
 	dp.Attributes().PutStr("host.name", "node-1")
 
-	data, dropped, err := translateMetrics(md, "ocid1.compartment.oc1..cfg", "cfg_ns")
+	data, dropped, err := translateMetricsForTest(md, "ocid1.compartment.oc1..cfg", "cfg_ns")
 	require.NoError(t, err)
 	require.Equal(t, 0, dropped)
 	require.Len(t, data, 1)
@@ -306,7 +417,87 @@ func TestTranslateMetricsDropsMissingTimestamp(t *testing.T) {
 	dp := m.SetEmptyGauge().DataPoints().AppendEmpty()
 	dp.SetDoubleValue(10)
 
-	data, dropped, err := translateMetrics(md, "", "")
+	data, dropped, err := translateMetricsForTest(md, "", "")
+	require.NoError(t, err)
+	require.Empty(t, data)
+	require.Equal(t, 1, dropped)
+}
+
+func TestTranslateMetricsAcceptsTimestampWithinPastWindow(t *testing.T) {
+	md := pmetric.NewMetrics()
+	rm := md.ResourceMetrics().AppendEmpty()
+	rm.Resource().Attributes().PutStr("oracle_cloud.monitoring.compartment.id", "ocid1.compartment.oc1..aaaa")
+	rm.Resource().Attributes().PutStr("oracle_cloud.monitoring.namespace", "otel_demo")
+	rm.Resource().Attributes().PutStr("service.name", "checkout")
+	sm := rm.ScopeMetrics().AppendEmpty()
+
+	m := sm.Metrics().AppendEmpty()
+	m.SetName("cpu.utilization")
+	dp := m.SetEmptyGauge().DataPoints().AppendEmpty()
+	dp.SetTimestamp(testTimestampAt(-defaultMaxPastTimestampSkew + testTimestampMargin))
+	dp.SetDoubleValue(10)
+
+	data, dropped, err := translateMetricsForTest(md, "", "")
+	require.NoError(t, err)
+	require.Len(t, data, 1)
+	require.Equal(t, 0, dropped)
+}
+
+func TestTranslateMetricsAcceptsTimestampWithinFutureWindow(t *testing.T) {
+	md := pmetric.NewMetrics()
+	rm := md.ResourceMetrics().AppendEmpty()
+	rm.Resource().Attributes().PutStr("oracle_cloud.monitoring.compartment.id", "ocid1.compartment.oc1..aaaa")
+	rm.Resource().Attributes().PutStr("oracle_cloud.monitoring.namespace", "otel_demo")
+	rm.Resource().Attributes().PutStr("service.name", "checkout")
+	sm := rm.ScopeMetrics().AppendEmpty()
+
+	m := sm.Metrics().AppendEmpty()
+	m.SetName("cpu.utilization")
+	dp := m.SetEmptyGauge().DataPoints().AppendEmpty()
+	dp.SetTimestamp(testTimestampAt(defaultMaxFutureTimestampSkew - testTimestampMargin))
+	dp.SetDoubleValue(10)
+
+	data, dropped, err := translateMetricsForTest(md, "", "")
+	require.NoError(t, err)
+	require.Len(t, data, 1)
+	require.Equal(t, 0, dropped)
+}
+
+func TestTranslateMetricsDropsTimestampOlderThanPastWindow(t *testing.T) {
+	md := pmetric.NewMetrics()
+	rm := md.ResourceMetrics().AppendEmpty()
+	rm.Resource().Attributes().PutStr("oracle_cloud.monitoring.compartment.id", "ocid1.compartment.oc1..aaaa")
+	rm.Resource().Attributes().PutStr("oracle_cloud.monitoring.namespace", "otel_demo")
+	rm.Resource().Attributes().PutStr("service.name", "checkout")
+	sm := rm.ScopeMetrics().AppendEmpty()
+
+	m := sm.Metrics().AppendEmpty()
+	m.SetName("cpu.utilization")
+	dp := m.SetEmptyGauge().DataPoints().AppendEmpty()
+	dp.SetTimestamp(testTimestampAt(-defaultMaxPastTimestampSkew - testTimestampMargin))
+	dp.SetDoubleValue(10)
+
+	data, dropped, err := translateMetricsForTest(md, "", "")
+	require.NoError(t, err)
+	require.Empty(t, data)
+	require.Equal(t, 1, dropped)
+}
+
+func TestTranslateMetricsDropsTimestampBeyondFutureWindow(t *testing.T) {
+	md := pmetric.NewMetrics()
+	rm := md.ResourceMetrics().AppendEmpty()
+	rm.Resource().Attributes().PutStr("oracle_cloud.monitoring.compartment.id", "ocid1.compartment.oc1..aaaa")
+	rm.Resource().Attributes().PutStr("oracle_cloud.monitoring.namespace", "otel_demo")
+	rm.Resource().Attributes().PutStr("service.name", "checkout")
+	sm := rm.ScopeMetrics().AppendEmpty()
+
+	m := sm.Metrics().AppendEmpty()
+	m.SetName("cpu.utilization")
+	dp := m.SetEmptyGauge().DataPoints().AppendEmpty()
+	dp.SetTimestamp(testTimestampAt(defaultMaxFutureTimestampSkew + testTimestampMargin))
+	dp.SetDoubleValue(10)
+
+	data, dropped, err := translateMetricsForTest(md, "", "")
 	require.NoError(t, err)
 	require.Empty(t, data)
 	require.Equal(t, 1, dropped)

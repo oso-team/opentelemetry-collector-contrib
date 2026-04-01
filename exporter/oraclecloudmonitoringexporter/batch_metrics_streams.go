@@ -5,6 +5,7 @@ import (
 	"maps"
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/oracle/oci-go-sdk/v65/monitoring"
 )
@@ -12,6 +13,8 @@ import (
 const (
 	maxDimensionsPerMetric     = 20
 	maxUniqueStreamsPerRequest = 50
+	maxDimensionKeyLength      = 256
+	maxDimensionValueLength    = 512
 )
 
 type batchedMetrics struct {
@@ -90,9 +93,36 @@ func normalizeDimensions(dimensions map[string]string) string {
 	return builder.String()
 }
 
-func isDimensionsWithinLimit(metric monitoring.MetricDataDetails) bool {
+func isMetricDimensionsValid(metric monitoring.MetricDataDetails) bool {
+	// Validate dimentions count
 	count := len(metric.Dimensions)
-	return count > 0 && count <= maxDimensionsPerMetric
+	if count <= 0 || count > maxDimensionsPerMetric {
+		return false
+	}
+
+	for key, value := range metric.Dimensions {
+		if !isDimensionKeyValid(key) || !isDimensionValueValid(value) {
+			return false
+		}
+	}
+	return true
+}
+
+func isDimensionKeyValid(key string) bool {
+	if key == "" || utf8.RuneCountInString(key) > maxDimensionKeyLength {
+		return false
+	}
+	// ASCII validation (within printable range 33(!) to 126(~) excluding spaces)
+	for _, r := range key {
+		if r < '!' || r > '~' {
+			return false
+		}
+	}
+	return true
+}
+
+func isDimensionValueValid(value string) bool {
+	return value != "" && utf8.RuneCountInString(value) <= maxDimensionValueLength
 }
 
 func intCeil(num1, num2 int) int {

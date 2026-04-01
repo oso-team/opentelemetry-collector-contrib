@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/consumer/consumererror"
@@ -28,7 +29,7 @@ func TestPushMetricsDataTranslateErrorIsPermanent(t *testing.T) {
 	m := sm.Metrics().AppendEmpty()
 	m.SetName("cpu.utilization")
 	dp := m.SetEmptyGauge().DataPoints().AppendEmpty()
-	dp.SetTimestamp(pcommon.Timestamp(1710000000000000000))
+	dp.SetTimestamp(testExportTimestamp())
 	dp.SetDoubleValue(1)
 
 	err := exp.pushMetricsData(t.Context(), md)
@@ -142,7 +143,7 @@ func metricWithRoutingAttrs() pmetric.Metrics {
 	m := sm.Metrics().AppendEmpty()
 	m.SetName("cpu.utilization")
 	dp := m.SetEmptyGauge().DataPoints().AppendEmpty()
-	dp.SetTimestamp(pcommon.Timestamp(1710000000000000000))
+	dp.SetTimestamp(testExportTimestamp())
 	dp.SetDoubleValue(1)
 	return md
 }
@@ -158,7 +159,7 @@ func metricWithManyUniqueStreams(streams int) pmetric.Metrics {
 		m := sm.Metrics().AppendEmpty()
 		m.SetName("cpu.utilization")
 		dp := m.SetEmptyGauge().DataPoints().AppendEmpty()
-		dp.SetTimestamp(pcommon.Timestamp(1710000000000000000))
+		dp.SetTimestamp(testExportTimestamp())
 		dp.SetDoubleValue(1)
 		dp.Attributes().PutStr("host.name", fmt.Sprintf("node-%03d", i))
 		dp.Attributes().PutStr("stream.id", fmt.Sprintf("%03d", i))
@@ -176,10 +177,14 @@ func metricWithDimensionCount(count int) pmetric.Metrics {
 	m := sm.Metrics().AppendEmpty()
 	m.SetName("cpu.utilization")
 	dp := m.SetEmptyGauge().DataPoints().AppendEmpty()
-	dp.SetTimestamp(pcommon.Timestamp(1710000000000000000))
+	dp.SetTimestamp(testExportTimestamp())
 	dp.SetDoubleValue(1)
 	for i := 0; i < count; i++ {
 		dp.Attributes().PutStr(fmt.Sprintf("dim.%02d", i), "value")
 	}
 	return md
+}
+
+func testExportTimestamp() pcommon.Timestamp {
+	return pcommon.Timestamp(time.Now().Add(-time.Minute).UnixNano())
 }

@@ -2,6 +2,7 @@ package oraclecloudmonitoringexporter
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/component"
@@ -81,4 +82,66 @@ func TestConfigValidate(t *testing.T) {
 			require.NoError(t, err)
 		})
 	}
+}
+
+func TestConfigValidateRejectsNegativeTimestampSkews(t *testing.T) {
+	cfg := Config{
+		Region: "us-phoenix-1",
+		Auth: configoptional.Some(configauth.Config{
+			AuthenticatorID: component.MustNewID("oraclecloudauth"),
+		}),
+		MaxPastTimestampSkew: -time.Second,
+	}
+
+	err := cfg.Validate()
+	require.Error(t, err)
+	require.ErrorContains(t, err, "max_past_timestamp_skew")
+
+	cfg.MaxPastTimestampSkew = 0
+	cfg.MaxFutureTimestampSkew = -time.Second
+
+	err = cfg.Validate()
+	require.Error(t, err)
+	require.ErrorContains(t, err, "max_future_timestamp_skew")
+}
+
+func TestConfigValidateRejectsTimestampSkewsAboveOCILimits(t *testing.T) {
+	cfg := Config{
+		Region: "us-phoenix-1",
+		Auth: configoptional.Some(configauth.Config{
+			AuthenticatorID: component.MustNewID("oraclecloudauth"),
+		}),
+		MaxPastTimestampSkew: defaultMaxPastTimestampSkew + time.Second,
+	}
+
+	err := cfg.Validate()
+	require.Error(t, err)
+	require.ErrorContains(t, err, "max_past_timestamp_skew")
+
+	cfg.MaxPastTimestampSkew = 0
+	cfg.MaxFutureTimestampSkew = defaultMaxFutureTimestampSkew + time.Second
+
+	err = cfg.Validate()
+	require.Error(t, err)
+	require.ErrorContains(t, err, "max_future_timestamp_skew")
+}
+
+func TestCreateDefaultConfigSetsTimestampSkewDefaults(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+
+	require.Equal(t, defaultMaxPastTimestampSkew, cfg.MaxPastTimestampSkew)
+	require.Equal(t, defaultMaxFutureTimestampSkew, cfg.MaxFutureTimestampSkew)
+}
+
+func TestConfigEffectiveTimestampSkewsUseDefaults(t *testing.T) {
+	cfg := &Config{}
+
+	require.Equal(t, defaultMaxPastTimestampSkew, cfg.effectiveMaxPastTimestampSkew())
+	require.Equal(t, defaultMaxFutureTimestampSkew, cfg.effectiveMaxFutureTimestampSkew())
+
+	cfg.MaxPastTimestampSkew = 30 * time.Minute
+	cfg.MaxFutureTimestampSkew = 5 * time.Minute
+
+	require.Equal(t, 30*time.Minute, cfg.effectiveMaxPastTimestampSkew())
+	require.Equal(t, 5*time.Minute, cfg.effectiveMaxFutureTimestampSkew())
 }

@@ -27,9 +27,11 @@ func NewFactory() exporter.Factory {
 
 func createDefaultConfig() component.Config {
 	return &Config{
-		TimeoutSettings: exporterhelper.NewDefaultTimeoutConfig(),
-		RetrySettings:   configretry.NewDefaultBackOffConfig(),
-		QueueSettings:   configoptional.Some(exporterhelper.NewDefaultQueueConfig()),
+		MaxPastTimestampSkew:   defaultMaxPastTimestampSkew,
+		MaxFutureTimestampSkew: defaultMaxFutureTimestampSkew,
+		TimeoutSettings:        exporterhelper.NewDefaultTimeoutConfig(),
+		RetrySettings:          configretry.NewDefaultBackOffConfig(),
+		QueueSettings:          configoptional.Some(exporterhelper.NewDefaultQueueConfig()),
 	}
 }
 

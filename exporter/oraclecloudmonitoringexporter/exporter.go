@@ -32,7 +32,13 @@ func (e *metricsExporter) pushMetricsData(ctx context.Context, md pmetric.Metric
 		return consumererror.NewPermanent(errors.New("Monitoring client was not initialized"))
 	}
 
-	metricData, translationDropped, err := translateMetrics(md, e.cfg.CompartmentId, e.cfg.Namespace)
+	metricData, translationDropped, err := translateMetrics(
+		md,
+		e.cfg.CompartmentId,
+		e.cfg.Namespace,
+		e.cfg.effectiveMaxPastTimestampSkew(),
+		e.cfg.effectiveMaxFutureTimestampSkew(),
+	)
 	if translationDropped > 0 {
 		// e.logger.Debug("dropped metric datapoints during metric translation", zap.Int("dropped_datapoints", translationDropped))
 	}
