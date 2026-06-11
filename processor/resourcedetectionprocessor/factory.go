@@ -85,6 +85,7 @@ func init() {
 	registerDetector(upcloud.TypeStr, upcloud.NewDetector)
 	registerDetector(vultr.TypeStr, vultr.NewDetector)
 }
+
 type factory struct {
 	resourceProviderFactory *internal.ResourceProviderFactory
 
