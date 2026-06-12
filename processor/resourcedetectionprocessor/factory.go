@@ -20,8 +20,6 @@ import (
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/metadata"
-
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/env"
 )
 
 var consumerCapabilities = consumer.Capabilities{MutatesData: true}
@@ -62,7 +60,7 @@ func (*factory) Type() component.Type {
 
 func createDefaultConfig() component.Config {
 	return &Config{
-		Detectors:       []string{env.TypeStr},
+		Detectors:       defaultDetectors(),
 		ClientConfig:    defaultClientConfig(),
 		Override:        true,
 		DetectorConfig:  detectorCreateDefaultConfig(),
