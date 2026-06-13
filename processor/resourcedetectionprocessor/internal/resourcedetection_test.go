@@ -147,12 +147,7 @@ func TestDetectResource_NoDetectors(t *testing.T) {
 	p := NewResourceProvider(zap.NewNop(), time.Second)
 
 	err := p.Refresh(t.Context(), &http.Client{Timeout: 10 * time.Second})
-	require.NoError(t, err)
-
-	res, schemaURL, err := p.Get(t.Context(), nil)
-	require.NoError(t, err)
-	assert.True(t, IsEmptyResource(res))
-	assert.Empty(t, schemaURL)
+	require.EqualError(t, err, "resource detection failed: no detectors succeeded")
 }
 
 func TestMergeResource(t *testing.T) {

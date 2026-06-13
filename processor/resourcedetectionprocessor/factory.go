@@ -19,6 +19,7 @@ import (
 	"go.opentelemetry.io/collector/processor/xprocessor"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/env"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/metadata"
 )
 
@@ -60,7 +61,7 @@ func (*factory) Type() component.Type {
 
 func createDefaultConfig() component.Config {
 	return &Config{
-		Detectors:       defaultDetectors(),
+		Detectors:       []string{env.TypeStr},
 		ClientConfig:    defaultClientConfig(),
 		Override:        true,
 		DetectorConfig:  detectorCreateDefaultConfig(),

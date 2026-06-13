@@ -146,12 +146,6 @@ func (p *ResourceProvider) Refresh(ctx context.Context, client *http.Client) err
 }
 
 func (p *ResourceProvider) detectResource(ctx context.Context) (pcommon.Resource, string, error) {
-
-	if len(p.detectors) == 0 {
-		p.logger.Info("no resource detectors registered")
-		return pcommon.NewResource(), "", nil
-	}
-
 	res := pcommon.NewResource()
 	mergedSchemaURL := ""
 	var joinedErr error

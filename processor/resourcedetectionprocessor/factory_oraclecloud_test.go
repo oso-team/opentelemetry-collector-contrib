@@ -16,6 +16,15 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/metadata"
 )
 
+// This file tests the behavior of a "trimmed build" in which go "build tags" are used to exclude/include
+// specific resource detection processor modules from the build.  As such, this test is intended to be run
+// differently than the standard unit tests.
+//
+// go test -tags='remove_all_resourcedetection_detectors,enable_oraclecloud_detector' . -run 'TestOracleCloudOnlyBuildCreatesConfiguredProcessor|TestOracleCloudOnlyBuildRejectsDisabledDetector' -count=1
+//
+// Note also the "go:build" directive at the top of the file, which appears as a comment but is actually a compile-time directive
+// which means that this test should only run if we've used build tags to exclude all resource detection processors,
+// and selectively enable the oracle cloud processor
 func TestOracleCloudOnlyBuildCreatesConfiguredProcessor(t *testing.T) {
 	factory := NewFactory()
 	cfg := factory.CreateDefaultConfig()
@@ -27,6 +36,8 @@ func TestOracleCloudOnlyBuildCreatesConfiguredProcessor(t *testing.T) {
 	assert.NotNil(t, tp)
 }
 
+// A detector that was excluded by build tags must fail at processor creation
+// instead of being silently accepted from config.
 func TestOracleCloudOnlyBuildRejectsDisabledDetector(t *testing.T) {
 	factory := NewFactory()
 	cfg := factory.CreateDefaultConfig()
