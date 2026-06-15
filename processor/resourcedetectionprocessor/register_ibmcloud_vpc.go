@@ -9,4 +9,5 @@ import ibmcloudvpc "github.com/open-telemetry/opentelemetry-collector-contrib/pr
 
 func init() {
 	registerDetector(ibmcloudvpc.TypeStr, ibmcloudvpc.NewDetector)
+	registerDetectorConfig(ibmcloudvpc.TypeStr, ibmcloudvpc.CreateDefaultConfig)
 }

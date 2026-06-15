@@ -9,4 +9,5 @@ import "github.com/open-telemetry/opentelemetry-collector-contrib/processor/reso
 
 func init() {
 	registerDetector(openshift.TypeStr, openshift.NewDetector)
+	registerDetectorConfig(openshift.TypeStr, openshift.CreateDefaultConfig)
 }

@@ -9,4 +9,5 @@ import ibmcloudclassic "github.com/open-telemetry/opentelemetry-collector-contri
 
 func init() {
 	registerDetector(ibmcloudclassic.TypeStr, ibmcloudclassic.NewDetector)
+	registerDetectorConfig(ibmcloudclassic.TypeStr, ibmcloudclassic.CreateDefaultConfig)
 }

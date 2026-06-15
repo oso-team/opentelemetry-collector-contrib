@@ -9,4 +9,5 @@ import "github.com/open-telemetry/opentelemetry-collector-contrib/processor/reso
 
 func init() {
 	registerDetector(kubeadm.TypeStr, kubeadm.NewDetector)
+	registerDetectorConfig(kubeadm.TypeStr, kubeadm.CreateDefaultConfig)
 }

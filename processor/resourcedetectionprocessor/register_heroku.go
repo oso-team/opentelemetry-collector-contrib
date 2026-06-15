@@ -9,4 +9,5 @@ import "github.com/open-telemetry/opentelemetry-collector-contrib/processor/reso
 
 func init() {
 	registerDetector(heroku.TypeStr, heroku.NewDetector)
+	registerDetectorConfig(heroku.TypeStr, heroku.CreateDefaultConfig)
 }

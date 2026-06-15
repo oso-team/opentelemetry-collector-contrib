@@ -9,4 +9,5 @@ import alibabaecs "github.com/open-telemetry/opentelemetry-collector-contrib/pro
 
 func init() {
 	registerDetector(alibabaecs.TypeStr, alibabaecs.NewDetector)
+	registerDetectorConfig(alibabaecs.TypeStr, alibabaecs.CreateDefaultConfig)
 }

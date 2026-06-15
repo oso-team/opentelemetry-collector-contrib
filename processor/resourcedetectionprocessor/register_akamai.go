@@ -9,4 +9,5 @@ import "github.com/open-telemetry/opentelemetry-collector-contrib/processor/reso
 
 func init() {
 	registerDetector(akamai.TypeStr, akamai.NewDetector)
+	registerDetectorConfig(akamai.TypeStr, akamai.CreateDefaultConfig)
 }

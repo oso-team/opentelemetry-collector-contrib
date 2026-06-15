@@ -9,4 +9,5 @@ import tencentcvm "github.com/open-telemetry/opentelemetry-collector-contrib/pro
 
 func init() {
 	registerDetector(tencentcvm.TypeStr, tencentcvm.NewDetector)
+	registerDetectorConfig(tencentcvm.TypeStr, tencentcvm.CreateDefaultConfig)
 }

@@ -28,3 +28,10 @@ func TestOracleCloudDetectorRegistry(t *testing.T) {
 
 	assert.ElementsMatch(t, expectedTypes, actualTypes)
 }
+
+func TestOracleCloudDetectorConfigRegistry(t *testing.T) {
+	config := detectorCreateDefaultConfig()
+
+	assert.NotNil(t, config.GetConfigFromType("oraclecloud"))
+	assert.Nil(t, config.GetConfigFromType("env"))
+}

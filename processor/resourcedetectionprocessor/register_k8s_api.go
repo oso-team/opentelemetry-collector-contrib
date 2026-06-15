@@ -10,4 +10,6 @@ import "github.com/open-telemetry/opentelemetry-collector-contrib/processor/reso
 func init() {
 	registerDetector(k8sapi.TypeStr, k8sapi.NewDetector)
 	registerDetector(k8sapi.TypeStrAlias, k8sapi.NewDeprecatedDetector)
+	registerDetectorConfig(k8sapi.TypeStr, k8sapi.CreateDefaultConfig)
+	registerDetectorConfig(k8sapi.TypeStrAlias, k8sapi.CreateDefaultConfig)
 }

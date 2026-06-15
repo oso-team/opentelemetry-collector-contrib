@@ -9,4 +9,5 @@ import "github.com/open-telemetry/opentelemetry-collector-contrib/processor/reso
 
 func init() {
 	registerDetector(lambda.TypeStr, lambda.NewDetector)
+	registerDetectorConfig(lambda.TypeStr, lambda.CreateDefaultConfig)
 }

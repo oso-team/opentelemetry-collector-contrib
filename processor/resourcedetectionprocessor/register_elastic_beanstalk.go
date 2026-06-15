@@ -9,4 +9,5 @@ import "github.com/open-telemetry/opentelemetry-collector-contrib/processor/reso
 
 func init() {
 	registerDetector(elasticbeanstalk.TypeStr, elasticbeanstalk.NewDetector)
+	registerDetectorConfigWithKey(elasticbeanstalk.TypeStr, "elasticbeanstalk", elasticbeanstalk.CreateDefaultConfig)
 }

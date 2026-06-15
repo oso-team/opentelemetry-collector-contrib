@@ -8,7 +8,6 @@ import (
 
 	"go.opentelemetry.io/collector/config/confighttp"
 
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/akamai"
 	alibabaecs "github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/alibaba/ecs"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/aws/ec2"
@@ -141,100 +140,4 @@ type DetectorConfig struct {
 
 	// VultrConfig contains user-specified configurations for the vultr detector
 	VultrConfig vultr.Config `mapstructure:"vultr"`
-}
-
-func detectorCreateDefaultConfig() DetectorConfig {
-	return DetectorConfig{
-		AlibabaECSConfig:       alibabaecs.CreateDefaultConfig(),
-		EC2Config:              ec2.CreateDefaultConfig(),
-		ECSConfig:              ecs.CreateDefaultConfig(),
-		EKSConfig:              eks.CreateDefaultConfig(),
-		ElasticbeanstalkConfig: elasticbeanstalk.CreateDefaultConfig(),
-		LambdaConfig:           lambda.CreateDefaultConfig(),
-		AzureConfig:            azure.CreateDefaultConfig(),
-		AksConfig:              aks.CreateDefaultConfig(),
-		ConsulConfig:           consul.CreateDefaultConfig(),
-		DigitalOceanConfig:     digitalocean.CreateDefaultConfig(),
-		DockerConfig:           docker.CreateDefaultConfig(),
-		GcpConfig:              gcp.CreateDefaultConfig(),
-		HerokuConfig:           heroku.CreateDefaultConfig(),
-		HetznerConfig:          hetzner.CreateDefaultConfig(),
-		IBMCloudClassicConfig:  ibmcloudclassic.CreateDefaultConfig(),
-		IBMCloudVPCConfig:      ibmcloudvpc.CreateDefaultConfig(),
-		SystemConfig:           system.CreateDefaultConfig(),
-		OpenShiftConfig:        openshift.CreateDefaultConfig(),
-		OpenStackNovaConfig:    nova.CreateDefaultConfig(),
-		OracleCloudConfig:      oraclecloud.CreateDefaultConfig(),
-		K8SAPIConfig:           k8sapi.CreateDefaultConfig(),
-		K8SNodeConfig:          k8sapi.CreateDefaultConfig(),
-		KubeadmConfig:          kubeadm.CreateDefaultConfig(),
-		AkamaiConfig:           akamai.CreateDefaultConfig(),
-		ScalewayConfig:         scaleway.CreateDefaultConfig(),
-		TencentCVMConfig:       tencentcvm.CreateDefaultConfig(),
-		UpcloudConfig:          upcloud.CreateDefaultConfig(),
-		VultrConfig:            vultr.CreateDefaultConfig(),
-	}
-}
-
-func (d *DetectorConfig) GetConfigFromType(detectorType internal.DetectorType) internal.DetectorConfig {
-	switch detectorType {
-	case alibabaecs.TypeStr:
-		return d.AlibabaECSConfig
-	case ec2.TypeStr:
-		return d.EC2Config
-	case ecs.TypeStr:
-		return d.ECSConfig
-	case eks.TypeStr:
-		return d.EKSConfig
-	case elasticbeanstalk.TypeStr:
-		return d.ElasticbeanstalkConfig
-	case lambda.TypeStr:
-		return d.LambdaConfig
-	case azure.TypeStr:
-		return d.AzureConfig
-	case aks.TypeStr:
-		return d.AksConfig
-	case consul.TypeStr:
-		return d.ConsulConfig
-	case digitalocean.TypeStr:
-		return d.DigitalOceanConfig
-	case docker.TypeStr:
-		return d.DockerConfig
-	case gcp.TypeStr:
-		return d.GcpConfig
-	case heroku.TypeStr:
-		return d.HerokuConfig
-	case hetzner.TypeStr:
-		return d.HetznerConfig
-	case ibmcloudclassic.TypeStr:
-		return d.IBMCloudClassicConfig
-	case ibmcloudvpc.TypeStr:
-		return d.IBMCloudVPCConfig
-	case system.TypeStr:
-		return d.SystemConfig
-	case openshift.TypeStr:
-		return d.OpenShiftConfig
-	case nova.TypeStr:
-		return d.OpenStackNovaConfig
-	case oraclecloud.TypeStr:
-		return d.OracleCloudConfig
-	case k8sapi.TypeStr:
-		return d.K8SAPIConfig
-	case k8sapi.TypeStrAlias:
-		return d.K8SNodeConfig
-	case kubeadm.TypeStr:
-		return d.KubeadmConfig
-	case akamai.TypeStr:
-		return d.AkamaiConfig
-	case scaleway.TypeStr:
-		return d.ScalewayConfig
-	case tencentcvm.TypeStr:
-		return d.TencentCVMConfig
-	case upcloud.TypeStr:
-		return d.UpcloudConfig
-	case vultr.TypeStr:
-		return d.VultrConfig
-	default:
-		return nil
-	}
 }
