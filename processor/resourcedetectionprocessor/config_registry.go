@@ -15,6 +15,7 @@ type detectorConfigDefault func(*DetectorConfig)
 
 var (
 	detectorConfigGetters  = map[internal.DetectorType]detectorConfigGetter{}
+	detectorConfigKeys     = map[string]struct{}{}
 	detectorConfigDefaults []detectorConfigDefault
 )
 
@@ -30,6 +31,7 @@ func registerDetectorConfigWithKey[T any](detectorType internal.DetectorType, co
 		panic("resource detector config " + configKey + " has default config type " + defaultType.String() + ", want " + fieldType.String())
 	}
 
+	detectorConfigKeys[configKey] = struct{}{}
 	detectorConfigGetters[detectorType] = func(config *DetectorConfig) any {
 		return reflect.ValueOf(config).Elem().Field(fieldIndex).Interface()
 	}
