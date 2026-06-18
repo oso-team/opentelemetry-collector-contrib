@@ -3,16 +3,8 @@
 
 package oraclecloud // import "github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/oraclecloud"
 
-import (
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/oraclecloud/internal/metadata"
-)
+import oraclecloudconfig "github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/oraclecloud/config"
 
-type Config struct {
-	ResourceAttributes metadata.ResourceAttributesConfig `mapstructure:"resource_attributes"`
-}
+type Config = oraclecloudconfig.Config
 
-func CreateDefaultConfig() Config {
-	return Config{
-		ResourceAttributes: metadata.DefaultResourceAttributesConfig(),
-	}
-}
+var CreateDefaultConfig = oraclecloudconfig.CreateDefaultConfig

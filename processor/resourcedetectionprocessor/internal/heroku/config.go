@@ -3,16 +3,8 @@
 
 package heroku // import "github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/heroku"
 
-import (
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/heroku/internal/metadata"
-)
+import herokuconfig "github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/heroku/config"
 
-type Config struct {
-	ResourceAttributes metadata.ResourceAttributesConfig `mapstructure:"resource_attributes"`
-}
+type Config = herokuconfig.Config
 
-func CreateDefaultConfig() Config {
-	return Config{
-		ResourceAttributes: metadata.DefaultResourceAttributesConfig(),
-	}
-}
+var CreateDefaultConfig = herokuconfig.CreateDefaultConfig

@@ -3,16 +3,8 @@
 
 package docker // import "github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/docker"
 
-import (
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/docker/internal/metadata"
-)
+import dockerconfig "github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/docker/config"
 
-type Config struct {
-	ResourceAttributes metadata.ResourceAttributesConfig `mapstructure:"resource_attributes"`
-}
+type Config = dockerconfig.Config
 
-func CreateDefaultConfig() Config {
-	return Config{
-		ResourceAttributes: metadata.DefaultResourceAttributesConfig(),
-	}
-}
+var CreateDefaultConfig = dockerconfig.CreateDefaultConfig

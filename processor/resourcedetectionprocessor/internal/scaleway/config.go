@@ -3,16 +3,8 @@
 
 package scaleway // import "github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/scaleway"
 
-import (
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/scaleway/internal/metadata"
-)
+import scalewayconfig "github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/scaleway/config"
 
-type Config struct {
-	ResourceAttributes metadata.ResourceAttributesConfig `mapstructure:"resource_attributes"`
-}
+type Config = scalewayconfig.Config
 
-func CreateDefaultConfig() Config {
-	return Config{
-		ResourceAttributes: metadata.DefaultResourceAttributesConfig(),
-	}
-}
+var CreateDefaultConfig = scalewayconfig.CreateDefaultConfig
