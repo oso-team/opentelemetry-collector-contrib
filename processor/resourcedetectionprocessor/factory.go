@@ -5,6 +5,7 @@ package resourcedetectionprocessor // import "github.com/open-telemetry/opentele
 
 import (
 	"context"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"go.opentelemetry.io/collector/processor/processorhelper"
 	"go.opentelemetry.io/collector/processor/processorhelper/xprocessorhelper"
 	"go.opentelemetry.io/collector/processor/xprocessor"
+	"go.uber.org/zap"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/metadata"
@@ -26,6 +28,7 @@ var consumerCapabilities = consumer.Capabilities{MutatesData: true}
 
 type factory struct {
 	resourceProviderFactory *internal.ResourceProviderFactory
+	compiledDetectors       []string
 
 	// providers stores a provider for each named processor that
 	// may a different set of detectors configured.
@@ -36,10 +39,12 @@ type factory struct {
 // NewFactory creates a new factory for ResourceDetection processor.
 func NewFactory() processor.Factory {
 
-	resourceProviderFactory := internal.NewProviderFactory(detectorRegistry())
+	registry := detectorRegistry()
+	resourceProviderFactory := internal.NewProviderFactory(registry)
 
 	f := &factory{
 		resourceProviderFactory: resourceProviderFactory,
+		compiledDetectors:       sortedDetectorTypes(registry),
 		providers:               map[component.ID]*internal.ResourceProvider{},
 	}
 
@@ -201,9 +206,16 @@ func (f *factory) getResourceProvider(
 	}
 
 	detectorTypes := make([]internal.DetectorType, 0, len(configuredDetectors))
+	configuredDetectorTypes := make([]string, 0, len(configuredDetectors))
 	for _, key := range configuredDetectors {
-		detectorTypes = append(detectorTypes, internal.DetectorType(strings.TrimSpace(key)))
+		detectorType := strings.TrimSpace(key)
+		detectorTypes = append(detectorTypes, internal.DetectorType(detectorType))
+		configuredDetectorTypes = append(configuredDetectorTypes, detectorType)
 	}
+
+	params.Logger.Info("resource detection processor detector configuration",
+		zap.Strings("compiled_detectors", f.compiledDetectors),
+		zap.Strings("configured_detectors", configuredDetectorTypes))
 
 	provider, err := f.resourceProviderFactory.CreateResourceProvider(params, timeout, &detectorConfigs, detectorTypes...)
 	if err != nil {
@@ -212,4 +224,14 @@ func (f *factory) getResourceProvider(
 
 	f.providers[params.ID] = provider
 	return provider, nil
+}
+
+func sortedDetectorTypes(registry map[internal.DetectorType]internal.DetectorFactory) []string {
+	detectorTypes := make([]string, 0, len(registry))
+	for detectorType := range registry {
+		detectorTypes = append(detectorTypes, string(detectorType))
+	}
+
+	sort.Strings(detectorTypes)
+	return detectorTypes
 }
