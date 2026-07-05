@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/k8sconfig"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/metadataproviders/k8snode"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/k8sapi/internal/metadata"
@@ -39,7 +40,12 @@ func NewDetector(set processor.Settings, dcfg internal.DetectorConfig) (internal
 		return nil, err
 	}
 	nodeName := os.Getenv(cfg.NodeFromEnvVar)
-	k8snodeProvider, err := k8snode.NewProvider(nodeName, cfg.APIConfig)
+	k8snodeProvider, err := k8snode.NewProvider(nodeName, k8sconfig.APIConfig{
+		AuthType:     k8sconfig.AuthType(cfg.AuthType),
+		Context:      cfg.Context,
+		KubeAPIQPS:   cfg.KubeAPIQPS,
+		KubeAPIBurst: cfg.KubeAPIBurst,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed creating k8snode detector: %w", err)
 	}

@@ -7,12 +7,19 @@ import (
 	"errors"
 	"os"
 
-	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/k8sconfig"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/k8sapi/internal/metadata"
 )
 
+// APIConfig mirrors k8sconfig.APIConfig without importing client-go.
+type APIConfig struct {
+	AuthType     string  `mapstructure:"auth_type"`
+	Context      string  `mapstructure:"context"`
+	KubeAPIQPS   float32 `mapstructure:"kube_api_qps"`
+	KubeAPIBurst int     `mapstructure:"kube_api_burst"`
+}
+
 type Config struct {
-	k8sconfig.APIConfig `mapstructure:",squash"`
+	APIConfig `mapstructure:",squash"`
 	// NodeFromEnv can be used to extract the node name from an environment
 	// variable. The value must be the name of the environment variable.
 	// This is useful when the node a Otel agent will run on cannot be
@@ -50,7 +57,7 @@ func (c *Config) UpdateDefaults() error {
 
 func CreateDefaultConfig() Config {
 	return Config{
-		APIConfig:          k8sconfig.APIConfig{AuthType: k8sconfig.AuthTypeServiceAccount},
+		APIConfig:          APIConfig{AuthType: "serviceAccount"},
 		ResourceAttributes: metadata.DefaultResourceAttributesConfig(),
 	}
 }

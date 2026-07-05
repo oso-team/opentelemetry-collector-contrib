@@ -12,6 +12,7 @@ import (
 	conventions "go.opentelemetry.io/otel/semconv/v1.40.0"
 	"go.uber.org/zap"
 
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/k8sconfig"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/metadataproviders/kubeadm"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/kubeadm/internal/metadata"
@@ -35,7 +36,12 @@ type detector struct {
 func NewDetector(set processor.Settings, dcfg internal.DetectorConfig) (internal.Detector, error) {
 	cfg := dcfg.(Config)
 
-	kubeadmProvider, err := kubeadm.NewProvider(defaultConfigMapName, defaultKubeSystemNamespace, cfg.APIConfig)
+	kubeadmProvider, err := kubeadm.NewProvider(defaultConfigMapName, defaultKubeSystemNamespace, k8sconfig.APIConfig{
+		AuthType:     k8sconfig.AuthType(cfg.AuthType),
+		Context:      cfg.Context,
+		KubeAPIQPS:   cfg.KubeAPIQPS,
+		KubeAPIBurst: cfg.KubeAPIBurst,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed creating kubeadm provider: %w", err)
 	}
