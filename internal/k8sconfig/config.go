@@ -25,6 +25,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/k8sconfig/k8sconfigtypes"
 )
 
 func init() {
@@ -32,22 +34,22 @@ func init() {
 	k8sruntime.PanicHandlers = []func(context.Context, any){}
 }
 
-// AuthType describes the type of authentication to use for the K8s API
-type AuthType string
+// AuthType describes the type of authentication to use for the K8s API.
+// It is defined in the light k8sconfigtypes package so that config schemas
+// can reference it without depending on k8s.io/client-go; the alias keeps
+// this package's public surface unchanged.
+type AuthType = k8sconfigtypes.AuthType
 
-// TODO: Add option for TLS once
-// https://go.opentelemetry.io/collector/issues/933
-// is addressed.
 const (
 	// AuthTypeNone means no auth is required
-	AuthTypeNone AuthType = "none"
+	AuthTypeNone = k8sconfigtypes.AuthTypeNone
 	// AuthTypeServiceAccount means to use the built-in service account that
 	// K8s automatically provisions for each pod.
-	AuthTypeServiceAccount AuthType = "serviceAccount"
+	AuthTypeServiceAccount = k8sconfigtypes.AuthTypeServiceAccount
 	// AuthTypeKubeConfig uses local credentials like those used by kubectl.
-	AuthTypeKubeConfig AuthType = "kubeConfig"
+	AuthTypeKubeConfig = k8sconfigtypes.AuthTypeKubeConfig
 	// AuthTypeTLS indicates that client TLS auth is desired
-	AuthTypeTLS AuthType = "tls"
+	AuthTypeTLS = k8sconfigtypes.AuthTypeTLS
 )
 
 const (
@@ -59,49 +61,11 @@ const (
 	DefaultKubeAPIBurst int = 10
 )
 
-var authTypes = map[AuthType]bool{
-	AuthTypeNone:           true,
-	AuthTypeServiceAccount: true,
-	AuthTypeKubeConfig:     true,
-	AuthTypeTLS:            true,
-}
-
-// APIConfig contains options relevant to connecting to the K8s API
-type APIConfig struct {
-	// How to authenticate to the K8s API server.  This can be one of `none`
-	// (for no auth), `serviceAccount` (to use the standard service account
-	// token provided to the agent pod), or `kubeConfig` to use credentials
-	// from `~/.kube/config`.
-	AuthType AuthType `mapstructure:"auth_type"`
-
-	// When using auth_type `kubeConfig`, override the current context.
-	Context string `mapstructure:"context"`
-
-	// KubeAPIQPS is the maximum number of queries per second to the Kubernetes API.
-	// Uses client-go's default (5) if unset. Increase if you see client-side throttling warnings.
-	KubeAPIQPS float32 `mapstructure:"kube_api_qps"`
-
-	// KubeAPIBurst is the maximum burst of requests to the Kubernetes API.
-	// Uses client-go's default (10) if unset. Increase if you see client-side throttling warnings.
-	KubeAPIBurst int `mapstructure:"kube_api_burst"`
-}
-
-// Validate validates the K8s API config
-func (c APIConfig) Validate() error {
-	if !authTypes[c.AuthType] {
-		return fmt.Errorf("invalid authType for kubernetes: %v", c.AuthType)
-	}
-
-	if c.KubeAPIQPS < 0 {
-		return errors.New("kube_api_qps must be greater than 0")
-	}
-
-	if c.KubeAPIBurst < 0 {
-		return errors.New("kube_api_burst must be greater than 0")
-	}
-
-	return nil
-}
+// APIConfig contains options relevant to connecting to the K8s API.
+// It is defined in the light k8sconfigtypes package (see AuthType above);
+// the alias preserves type identity for all existing importers, and the
+// Validate method travels with the type.
+type APIConfig = k8sconfigtypes.APIConfig
 
 // CreateRestConfig creates an Kubernetes API config from user configuration.
 func CreateRestConfig(apiConf APIConfig) (*rest.Config, error) {
