@@ -21,7 +21,11 @@ import (
 	"go.opentelemetry.io/collector/processor"
 	"go.opentelemetry.io/collector/processor/processortest"
 	"go.opentelemetry.io/collector/processor/xprocessor"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 
+	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/metadata"
 )
 
@@ -76,6 +80,33 @@ func TestCreateConfigProcessors(t *testing.T) {
 			assert.NotNil(t, tt)
 		})
 	}
+}
+
+func TestGetResourceProviderLogsDetectorConfiguration(t *testing.T) {
+	core, observedLogs := observer.New(zapcore.InfoLevel)
+	factory := &factory{
+		resourceProviderFactory: internal.NewProviderFactory(map[internal.DetectorType]internal.DetectorFactory{
+			"mock": func(processor.Settings, internal.DetectorConfig) (internal.Detector, error) {
+				return &mockDetector{}, nil
+			},
+		}),
+		compiledDetectors: []string{"mock"},
+		providers:         map[component.ID]*internal.ResourceProvider{},
+	}
+	settings := processortest.NewNopSettings(metadata.Type)
+	settings.Logger = zap.New(core)
+	cfg := detectorCreateDefaultConfig()
+
+	provider, err := factory.getResourceProvider(settings, 0, []string{" mock "}, cfg)
+	require.NoError(t, err)
+	require.NotNil(t, provider)
+
+	logs := observedLogs.FilterMessage("resource detection processor detector configuration").All()
+	require.Len(t, logs, 1)
+	assert.Equal(t, map[string]any{
+		"compiled_detectors":   []any{"mock"},
+		"configured_detectors": []any{"mock"},
+	}, logs[0].ContextMap())
 }
 
 func TestInvalidConfig(t *testing.T) {

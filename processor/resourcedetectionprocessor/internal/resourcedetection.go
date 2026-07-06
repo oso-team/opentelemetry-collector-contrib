@@ -10,6 +10,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -63,7 +65,8 @@ func (f *ResourceProviderFactory) getDetectors(params processor.Settings, detect
 	for _, detectorType := range detectorTypes {
 		detectorFactory, ok := f.detectors[detectorType]
 		if !ok {
-			return nil, fmt.Errorf("invalid detector key: %v", detectorType)
+			return nil, fmt.Errorf("detector %q is not compiled into this binary; compiled detectors: [%s]",
+				detectorType, strings.Join(f.compiledDetectorTypes(), ", "))
 		}
 
 		detector, err := detectorFactory(params, detectorConfigs.GetConfigFromType(detectorType))
@@ -75,6 +78,16 @@ func (f *ResourceProviderFactory) getDetectors(params processor.Settings, detect
 	}
 
 	return detectors, nil
+}
+
+func (f *ResourceProviderFactory) compiledDetectorTypes() []string {
+	detectorTypes := make([]string, 0, len(f.detectors))
+	for detectorType := range f.detectors {
+		detectorTypes = append(detectorTypes, string(detectorType))
+	}
+
+	sort.Strings(detectorTypes)
+	return detectorTypes
 }
 
 type ResourceProvider struct {

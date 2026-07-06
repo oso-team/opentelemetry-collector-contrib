@@ -144,7 +144,7 @@ func TestResourceProcessor(t *testing.T) {
 		{
 			name:             "Invalid detector key",
 			detectorKeys:     []string{"invalid-key"},
-			expectedNewError: "invalid detector key: invalid-key",
+			expectedNewError: `detector "invalid-key" is not compiled into this binary; compiled detectors: [mock]`,
 		},
 	}
 
