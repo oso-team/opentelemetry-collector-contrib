@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-08-14T15:59:30.675754Z",
+  "generated_at": "2026-08-14T16:41:16.999907Z",
   "data_kind": "measured",
   "context": {
     "repo": "open-telemetry/opentelemetry-collector-contrib",
