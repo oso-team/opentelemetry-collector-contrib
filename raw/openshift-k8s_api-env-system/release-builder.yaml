@@ -1,0 +1,23 @@
+# Minimal collector used to measure resourcedetection detector variants.
+# The report runner adds local Contrib module replacements in its generated copy.
+dist:
+  module: github.com/aeon/aeon-otel-collector-factory/cmd/rdpreport
+  name: otelcol-rdp-report
+  description: "OpenTelemetry Collector resourcedetection build report"
+  version: v1
+  output_path: ./_build/rdp-report
+
+  build_tags: "remove_all_resourcedetection_detectors,enable_resourcedetection_openshift_detector,enable_resourcedetection_k8s_api_detector,enable_resourcedetection_env_detector,enable_resourcedetection_system_detector"
+exporters:
+  - gomod: go.opentelemetry.io/collector/exporter/debugexporter v0.158.1-0.20260805181402-19664a7b14af
+
+processors:
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor v0.157.0
+
+receivers:
+  - gomod: go.opentelemetry.io/collector/receiver/otlpreceiver v0.158.1-0.20260805181402-19664a7b14af
+
+replaces:
+  - github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor => ${CONTRIB_REPO}/processor/resourcedetectionprocessor
+  - github.com/open-telemetry/opentelemetry-collector-contrib/internal/k8sconfig => ${CONTRIB_REPO}/internal/k8sconfig
+  - github.com/open-telemetry/opentelemetry-collector-contrib/internal/metadataproviders => ${CONTRIB_REPO}/internal/metadataproviders

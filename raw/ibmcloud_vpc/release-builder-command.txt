@@ -1,0 +1,1 @@
+env GOOS=darwin GOARCH=arm64 GOWORK=off ${FACTORY_REPO}/.tools/bin/builder --config ${REPORT_RUN_DIR}/raw/ibmcloud_vpc/release-builder.yaml
