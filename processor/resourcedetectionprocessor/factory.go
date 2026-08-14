@@ -5,6 +5,7 @@ package resourcedetectionprocessor // import "github.com/open-telemetry/opentele
 
 import (
 	"context"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -21,43 +22,14 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/akamai"
-	alibabaecs "github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/alibaba/ecs"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/aws/ec2"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/aws/ecs"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/aws/eks"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/aws/elasticbeanstalk"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/aws/lambda"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/azure"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/azure/aks"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/azure/containerapps"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/consul"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/digitalocean"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/docker"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/dynatrace"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/env"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/gcp"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/heroku"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/hetzner"
-	ibmcloudclassic "github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/ibmcloud/classic"
-	ibmcloudvpc "github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/ibmcloud/vpc"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/k8sapi"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/kubeadm"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/metadata"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/openshift"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/openstack/nova"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/oraclecloud"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/scaleway"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/system"
-	tencentcvm "github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/tencent/cvm"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/upcloud"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/vultr"
 )
 
 var consumerCapabilities = consumer.Capabilities{MutatesData: true}
 
 type factory struct {
 	resourceProviderFactory *internal.ResourceProviderFactory
+	compiledDetectors       []string
 
 	// providers stores a provider for each named processor that
 	// may a different set of detectors configured.
@@ -67,42 +39,9 @@ type factory struct {
 
 // NewFactory creates a new factory for ResourceDetection processor.
 func NewFactory() processor.Factory {
-	resourceProviderFactory := internal.NewProviderFactory(map[internal.DetectorType]internal.DetectorFactory{
-		akamai.TypeStr:           akamai.NewDetector,
-		alibabaecs.TypeStr:       alibabaecs.NewDetector,
-		aks.TypeStr:              aks.NewDetector,
-		azure.TypeStr:            azure.NewDetector,
-		containerapps.TypeStr:    containerapps.NewDetector,
-		consul.TypeStr:           consul.NewDetector,
-		digitalocean.TypeStr:     digitalocean.NewDetector,
-		docker.TypeStr:           docker.NewDetector,
-		ec2.TypeStr:              ec2.NewDetector,
-		ecs.TypeStr:              ecs.NewDetector,
-		eks.TypeStr:              eks.NewDetector,
-		elasticbeanstalk.TypeStr: elasticbeanstalk.NewDetector,
-		lambda.TypeStr:           lambda.NewDetector,
-		env.TypeStr:              env.NewDetector,
-		gcp.TypeStr:              gcp.NewDetector,
-		heroku.TypeStr:           heroku.NewDetector,
-		hetzner.TypeStr:          hetzner.NewDetector,
-		ibmcloudclassic.TypeStr:  ibmcloudclassic.NewDetector,
-		ibmcloudvpc.TypeStr:      ibmcloudvpc.NewDetector,
-		scaleway.TypeStr:         scaleway.NewDetector,
-		system.TypeStr:           system.NewDetector,
-		openshift.TypeStr:        openshift.NewDetector,
-		nova.TypeStr:             nova.NewDetector,
-		oraclecloud.TypeStr:      oraclecloud.NewDetector,
-		k8sapi.TypeStr:           k8sapi.NewDetector,
-		k8sapi.TypeStrAlias:      k8sapi.NewDeprecatedDetector,
-		kubeadm.TypeStr:          kubeadm.NewDetector,
-		dynatrace.TypeStr:        dynatrace.NewDetector,
-		tencentcvm.TypeStr:       tencentcvm.NewDetector,
-		upcloud.TypeStr:          upcloud.NewDetector,
-		vultr.TypeStr:            vultr.NewDetector,
-	})
-
 	f := &factory{
-		resourceProviderFactory: resourceProviderFactory,
+		resourceProviderFactory: internal.NewProviderFactory(globalDetectorRegistry),
+		compiledDetectors:       sortedDetectorTypes(globalDetectorRegistry),
 		providers:               map[component.ID]*internal.ResourceProvider{},
 	}
 
@@ -124,7 +63,7 @@ func (*factory) Type() component.Type {
 
 func createDefaultConfig() component.Config {
 	return &Config{
-		Detectors:       []string{env.TypeStr},
+		Detectors:       []string{"env"},
 		ClientConfig:    defaultClientConfig(),
 		Override:        true,
 		DetectorConfig:  detectorCreateDefaultConfig(),
@@ -313,9 +252,14 @@ func (f *factory) getResourceProvider(
 	}
 
 	detectorTypes := make([]internal.DetectorType, 0, len(configuredDetectors))
+	configuredDetectorTypes := make([]string, 0, len(configuredDetectors))
 	for _, key := range configuredDetectors {
-		detectorTypes = append(detectorTypes, internal.DetectorType(strings.TrimSpace(key)))
+		detectorType := strings.TrimSpace(key)
+		detectorTypes = append(detectorTypes, internal.DetectorType(detectorType))
+		configuredDetectorTypes = append(configuredDetectorTypes, detectorType)
 	}
+
+	logDetectorConfiguration(params.Logger, f.compiledDetectors, configuredDetectorTypes)
 
 	provider, err := f.resourceProviderFactory.CreateResourceProvider(params, backoffConfig, failOnMissingMetadata, &detectorConfigs, detectorTypes...)
 	if err != nil {
@@ -324,4 +268,14 @@ func (f *factory) getResourceProvider(
 
 	f.providers[params.ID] = provider
 	return provider, nil
+}
+
+func sortedDetectorTypes(registry map[internal.DetectorType]internal.DetectorFactory) []string {
+	detectorTypes := make([]string, 0, len(registry))
+	for detectorType := range registry {
+		detectorTypes = append(detectorTypes, string(detectorType))
+	}
+
+	sort.Strings(detectorTypes)
+	return detectorTypes
 }

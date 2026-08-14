@@ -126,7 +126,7 @@ func TestDetectResource_InvalidDetectorType(t *testing.T) {
 	mockDetectorKey := DetectorType("mock")
 	p := NewProviderFactory(map[DetectorType]DetectorFactory{})
 	_, err := p.CreateResourceProvider(processortest.NewNopSettings(metadata.Type), fastRetryConfig, false, &mockDetectorConfig{}, mockDetectorKey)
-	require.EqualError(t, err, fmt.Sprintf("invalid detector key: %v", mockDetectorKey))
+	require.EqualError(t, err, fmt.Sprintf("detector %q is not compiled into this binary; compiled detectors: []", mockDetectorKey))
 }
 
 func TestDetectResource_DetectorFactoryError(t *testing.T) {
