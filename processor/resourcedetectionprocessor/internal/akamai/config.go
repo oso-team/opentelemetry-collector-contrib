@@ -3,16 +3,10 @@
 
 package akamai // import "github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/akamai"
 
-import (
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/akamai/internal/metadata"
-)
+import akamaiconfig "github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/akamai/config"
 
-type Config struct {
-	ResourceAttributes metadata.ResourceAttributesConfig `mapstructure:"resource_attributes"`
-}
+type Config = akamaiconfig.Config
 
 func CreateDefaultConfig() Config {
-	return Config{
-		ResourceAttributes: metadata.DefaultResourceAttributesConfig(),
-	}
+	return akamaiconfig.CreateDefaultConfig()
 }

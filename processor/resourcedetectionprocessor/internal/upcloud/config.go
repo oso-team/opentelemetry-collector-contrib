@@ -3,19 +3,10 @@
 
 package upcloud // import "github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/upcloud"
 
-import (
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/upcloud/internal/metadata"
-)
+import upcloudconfig "github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/upcloud/config"
 
-type Config struct {
-	ResourceAttributes metadata.ResourceAttributesConfig `mapstructure:"resource_attributes"`
-	// Deprecated: Use the top-level fail_on_missing_metadata in the processor config instead.
-	// This field will be removed in a future release.
-	FailOnMissingMetadata bool `mapstructure:"fail_on_missing_metadata"`
-}
+type Config = upcloudconfig.Config
 
 func CreateDefaultConfig() Config {
-	return Config{
-		ResourceAttributes: metadata.DefaultResourceAttributesConfig(),
-	}
+	return upcloudconfig.CreateDefaultConfig()
 }

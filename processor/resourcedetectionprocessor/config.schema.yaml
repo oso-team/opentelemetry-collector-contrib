@@ -1,95 +1,95 @@
 $defs:
   detector_config:
-    description: DetectorConfig contains user-specified configurations unique to all individual detectors
+    description: DetectorConfig contains user-specified configurations unique to all individual detectors. The field types come from each detector's dependency-light config package rather than the detector package itself, so that this always-compiled schema does not import any detector implementation (and the vendor SDKs they carry).
     type: object
     properties:
       akamai:
         description: AkamaiConfig contains user-specified configurations for the akamai detector
-        $ref: ./internal/akamai.config
+        $ref: ./internal/akamai/config.config
       aks:
         description: Aks contains user-specified configurations for the aks detector
-        $ref: ./internal/azure/aks.config
+        $ref: ./internal/azure/aks/config.config
       alibaba_ecs:
         description: AlibabaECSConfig contains user-specified configurations for the Alibaba Cloud ECS detector
-        $ref: ./internal/alibaba/ecs.config
+        $ref: ./internal/alibaba/ecs/config.config
       azure:
         description: Azure contains user-specified configurations for the azure detector
-        $ref: ./internal/azure.config
+        $ref: ./internal/azure/config.config
       azurecontainerapps:
         description: AzureContainerAppsConfig contains user-specified configurations for the Azure Container Apps detector
-        $ref: ./internal/azure/containerapps.config
+        $ref: ./internal/azure/containerapps/config.config
       consul:
         description: ConsulConfig contains user-specified configurations for the Consul detector
-        $ref: ./internal/consul.config
+        $ref: ./internal/consul/config.config
       digitalocean:
         description: DigitalOceanConfig contains user-specified configurations for the digitalocean detector
-        $ref: ./internal/digitalocean.config
+        $ref: ./internal/digitalocean/config.config
       docker:
         description: DockerConfig contains user-specified configurations for the docker detector
-        $ref: ./internal/docker.config
+        $ref: ./internal/docker/config.config
       ec2:
         description: EC2Config contains user-specified configurations for the EC2 detector
-        $ref: ./internal/aws/ec2.config
+        $ref: ./internal/aws/ec2/config.config
       ecs:
         description: ECSConfig contains user-specified configurations for the ECS detector
-        $ref: ./internal/aws/ecs.config
+        $ref: ./internal/aws/ecs/config.config
       eks:
         description: EKSConfig contains user-specified configurations for the EKS detector
-        $ref: ./internal/aws/eks.config
+        $ref: ./internal/aws/eks/config.config
       elasticbeanstalk:
         description: Elasticbeanstalk contains user-specified configurations for the elasticbeanstalk detector
-        $ref: ./internal/aws/elasticbeanstalk.config
+        $ref: ./internal/aws/elasticbeanstalk/config.config
       gcp:
         description: GcpConfig contains user-specified configurations for the gcp detector
-        $ref: ./internal/gcp.config
+        $ref: ./internal/gcp/config.config
       heroku:
         description: HerokuConfig contains user-specified configurations for the heroku detector
-        $ref: ./internal/heroku.config
+        $ref: ./internal/heroku/config.config
       hetzner:
         description: HetznerConfig contains user-specified configurations for the hetzner detector
-        $ref: ./internal/hetzner.config
+        $ref: ./internal/hetzner/config.config
       ibmcloud_classic:
         description: IBMCloudClassicConfig contains user-specified configurations for the IBM Cloud Classic detector
-        $ref: ./internal/ibmcloud/classic.config
+        $ref: ./internal/ibmcloud/classic/config.config
       ibmcloud_vpc:
         description: IBMCloudVPCConfig contains user-specified configurations for the IBM Cloud VPC detector
-        $ref: ./internal/ibmcloud/vpc.config
+        $ref: ./internal/ibmcloud/vpc/config.config
       k8s_api:
         description: K8SAPIConfig contains user-specified configurations for the K8S API detector
-        $ref: ./internal/k8sapi.config
+        $ref: ./internal/k8sapi/config.config
       k8snode:
         description: 'K8SNodeConfig contains user-specified configurations for the K8SNode detector (deprecated: use K8SAPIConfig)'
-        $ref: ./internal/k8sapi.config
+        $ref: ./internal/k8sapi/config.config
       kubeadm:
         description: Kubeadm contains user-specified configurations for the Kubeadm detector
-        $ref: ./internal/kubeadm.config
+        $ref: ./internal/kubeadm/config.config
       lambda:
         description: Lambda contains user-specified configurations for the lambda detector
-        $ref: ./internal/aws/lambda.config
+        $ref: ./internal/aws/lambda/config.config
       nova:
         description: OpenStackNovaConfig contains user-specified configurations for the OpenStackNova detector
-        $ref: ./internal/openstack/nova.config
+        $ref: ./internal/openstack/nova/config.config
       openshift:
         description: OpenShift contains user-specified configurations for the OpenShift detector
-        $ref: ./internal/openshift.config
+        $ref: ./internal/openshift/config.config
       oraclecloud:
         description: OracleCloud contains user-specified configurations for the OracleCloud detector
-        $ref: ./internal/oraclecloud.config
+        $ref: ./internal/oraclecloud/config.config
       scaleway:
         description: ScalewayConfig contains user-specified configurations for the scaleway detector
-        $ref: ./internal/scaleway.config
+        $ref: ./internal/scaleway/config.config
       system:
         description: SystemConfig contains user-specified configurations for the System detector
-        $ref: ./internal/system.config
+        $ref: ./internal/system/config.config
       tencent_cvm:
         description: TencentCVMConfig contains user-specified configurations for the Tencent Cloud CVM detector
-        $ref: ./internal/tencent/cvm.config
+        $ref: ./internal/tencent/cvm/config.config
       upcloud:
         description: UpcloudConfig contains user-specified configurations for the upcloud detector
-        $ref: ./internal/upcloud.config
+        $ref: ./internal/upcloud/config.config
       vultr:
         description: VultrConfig contains user-specified configurations for the vultr detector
-        $ref: ./internal/vultr.config
+        $ref: ./internal/vultr/config.config
 description: Config defines configuration for Resource processor.
 type: object
 properties:
