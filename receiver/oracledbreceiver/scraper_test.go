@@ -146,6 +146,8 @@ var queryResponses = map[string][]metricRow{
 	},
 	tablespaceUsageSQL:        {{"TABLESPACE_NAME": "SYS", "USED_SPACE": "111288", "TABLESPACE_SIZE": "3518587", "BLOCK_SIZE": "8192", "STATUS": "ONLINE"}},
 	tablespaceUsageWithMaxSQL: {{"TABLESPACE_NAME": "SYS", "USED_SPACE": "111288", "TABLESPACE_SIZE": "3518587", "BLOCK_SIZE": "8192", "STATUS": "ONLINE", "MAX_BYTES": "1073741824"}},
+	asmDiskgroupSQL:           {{"NAME": "DATA", "TOTAL_MB": "102400", "FREE_MB": "40960", "USABLE_FILE_MB": "20480", "OFFLINE_DISKS": "0"}},
+	asmDiskSQL:                {{"DISKGROUP_NAME": "DATA", "DISK_NAME": "DATA_0000", "READ_ERRS": "0", "WRITE_ERRS": "0"}},
 	dataDictHitRatioSQL:       {{"DATA_DICTIONARY_HIT_RATIO": "98.75"}},
 	osStatSQL: {
 		{"STAT_NAME": "NUM_CPUS", "VALUE": "8"},
@@ -493,6 +495,150 @@ func TestScraper_ScrapeTablespaceHealthMetrics_BadMaxBytes(t *testing.T) {
 	_, err = scrpr.scrape(t.Context())
 	require.True(t, scrapererror.IsPartialScrapeError(err))
 	require.EqualError(t, err, `failed to parse int64 for OracledbTablespaceLimit, value was not-a-number: strconv.ParseInt: parsing "not-a-number": invalid syntax`)
+}
+
+// TestScraper_ScrapeASMMetrics covers the 5 new opt-in ASM diskgroup/disk metrics.
+func TestScraper_ScrapeASMMetrics(t *testing.T) {
+	cfg := metadata.NewDefaultMetricsBuilderConfig()
+	cfg.Metrics.OracledbAsmDiskGroupFree.Enabled = true
+	cfg.Metrics.OracledbAsmDiskGroupCapacity.Enabled = true
+	cfg.Metrics.OracledbAsmDiskGroupUsableFree.Enabled = true
+	cfg.Metrics.OracledbAsmDiskGroupOfflineDisks.Enabled = true
+	cfg.Metrics.OracledbAsmDiskErrors.Enabled = true
+
+	scrpr := oracleScraper{
+		logger: zap.NewNop(),
+		mb:     metadata.NewMetricsBuilder(cfg, receivertest.NewNopSettings(metadata.Type)),
+		dbProviderFunc: func() (*sql.DB, error) {
+			return nil, nil
+		},
+		clientProviderFunc: func(_ *sql.DB, s string, _ *zap.Logger) dbClient {
+			return &fakeDbClient{Responses: [][]metricRow{queryResponses[s]}}
+		},
+		id:                   component.ID{},
+		metricsBuilderConfig: cfg,
+	}
+
+	err := scrpr.start(t.Context(), componenttest.NewNopHost())
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, scrpr.shutdown(t.Context())) }()
+
+	m, err := scrpr.scrape(t.Context())
+	require.NoError(t, err)
+
+	metrics := m.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
+
+	found := map[string]bool{}
+	for i := 0; i < metrics.Len(); i++ {
+		metric := metrics.At(i)
+		switch metric.Name() {
+		case "oracledb.asm.disk_group.free":
+			found["free"] = true
+			dp := metric.Gauge().DataPoints().At(0)
+			assert.Equal(t, int64(40960*1024*1024), dp.IntValue())
+			name, ok := dp.Attributes().Get("oracledb.asm.disk_group.name")
+			require.True(t, ok)
+			assert.Equal(t, "DATA", name.Str())
+		case "oracledb.asm.disk_group.capacity":
+			found["capacity"] = true
+			assert.Equal(t, int64(102400*1024*1024), metric.Gauge().DataPoints().At(0).IntValue())
+		case "oracledb.asm.disk_group.usable_free":
+			found["usable_free"] = true
+			assert.Equal(t, int64(20480*1024*1024), metric.Gauge().DataPoints().At(0).IntValue())
+		case "oracledb.asm.disk_group.offline_disks":
+			found["offline_disks"] = true
+			assert.Equal(t, int64(0), metric.Gauge().DataPoints().At(0).IntValue())
+		case "oracledb.asm.disk.errors":
+			found["disk_errors"] = true
+			assert.True(t, metric.Sum().IsMonotonic(), "oracledb.asm.disk.errors must be a monotonic sum")
+			assert.Equal(t, 2, metric.Sum().DataPoints().Len(), "expected one data point per direction (read, write)")
+		}
+	}
+	assert.True(t,
+		found["free"] && found["capacity"] && found["usable_free"] && found["offline_disks"] && found["disk_errors"],
+		"expected all 5 ASM metrics to be present, got: %v", found)
+}
+
+// TestScraper_ScrapeASMMetrics_NonASMInstance verifies that when the ASM views return zero rows
+// (a non-ASM instance), the scraper no-ops cleanly instead of erroring.
+func TestScraper_ScrapeASMMetrics_NonASMInstance(t *testing.T) {
+	cfg := metadata.NewDefaultMetricsBuilderConfig()
+	cfg.Metrics.OracledbAsmDiskGroupFree.Enabled = true
+	cfg.Metrics.OracledbAsmDiskErrors.Enabled = true
+
+	scrpr := oracleScraper{
+		logger: zap.NewNop(),
+		mb:     metadata.NewMetricsBuilder(cfg, receivertest.NewNopSettings(metadata.Type)),
+		dbProviderFunc: func() (*sql.DB, error) {
+			return nil, nil
+		},
+		clientProviderFunc: func(_ *sql.DB, s string, _ *zap.Logger) dbClient {
+			if s == asmDiskgroupSQL || s == asmDiskSQL {
+				return &fakeDbClient{Responses: [][]metricRow{{}}}
+			}
+			return &fakeDbClient{Responses: [][]metricRow{queryResponses[s]}}
+		},
+		id:                   component.ID{},
+		metricsBuilderConfig: cfg,
+	}
+
+	err := scrpr.start(t.Context(), componenttest.NewNopHost())
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, scrpr.shutdown(t.Context())) }()
+
+	m, err := scrpr.scrape(t.Context())
+	require.NoError(t, err)
+
+	metrics := m.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
+	for i := 0; i < metrics.Len(); i++ {
+		name := metrics.At(i).Name()
+		assert.NotEqual(t, "oracledb.asm.disk_group.free", name)
+		assert.NotEqual(t, "oracledb.asm.disk.errors", name)
+	}
+}
+
+// TestScraper_ScrapeASMMetrics_ErrorDoesNotBlockOtherMetrics verifies that an ASM query error
+// surfaces as a partial scrape error, without preventing an unrelated metric collected earlier
+// or later in the same scrape from being emitted.
+func TestScraper_ScrapeASMMetrics_ErrorDoesNotBlockOtherMetrics(t *testing.T) {
+	cfg := metadata.NewDefaultMetricsBuilderConfig()
+	cfg.Metrics.OracledbAsmDiskGroupFree.Enabled = true
+	cfg.Metrics.OracledbConsistentGets.Enabled = true
+
+	scrpr := oracleScraper{
+		logger: zap.NewNop(),
+		mb:     metadata.NewMetricsBuilder(cfg, receivertest.NewNopSettings(metadata.Type)),
+		dbProviderFunc: func() (*sql.DB, error) {
+			return nil, nil
+		},
+		clientProviderFunc: func(_ *sql.DB, s string, _ *zap.Logger) dbClient {
+			if s == asmDiskgroupSQL {
+				return &fakeDbClient{Err: errors.New("connection reset by peer")}
+			}
+			return &fakeDbClient{Responses: [][]metricRow{queryResponses[s]}}
+		},
+		id:                   component.ID{},
+		metricsBuilderConfig: cfg,
+	}
+
+	err := scrpr.start(t.Context(), componenttest.NewNopHost())
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, scrpr.shutdown(t.Context())) }()
+
+	m, err := scrpr.scrape(t.Context())
+	require.Error(t, err)
+	assert.True(t, scrapererror.IsPartialScrapeError(err), "an ASM error must be a partial scrape error, not a total failure")
+
+	metrics := m.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
+	found := false
+	for i := 0; i < metrics.Len(); i++ {
+		if metrics.At(i).Name() == "oracledb.consistent_gets" {
+			found = true
+		}
+		assert.NotEqual(t, "oracledb.asm.disk_group.free", metrics.At(i).Name(),
+			"the failed ASM metric itself must not appear")
+	}
+	assert.True(t, found, "oracledb.consistent_gets must still be emitted despite the ASM error")
 }
 
 // TestScraper_ScrapeCDBRoot verifies that when the scraper is in CDB-root mode (isCDBRoot=true)
@@ -2745,6 +2891,106 @@ func TestObfuscateCacheHitsHandlesTruncatedSQL(t *testing.T) {
 	// Verify no obfuscation errors were logged.
 	warnLogs := observedLogs.FilterMessage("oracleScraper failed to obfuscate SQL query, skipping entry")
 	assert.Equal(t, 0, warnLogs.Len(), "Expected no obfuscation failures")
+}
+
+// Object ids are unique only within a container, so from a CDB root a join on object id alone can attribute
+// a PDB row to an unrelated root object, and grouping by it alone merges values across containers.
+func TestCDBRootDictionaryJoinsMatchOnConID(t *testing.T) {
+	tests := []struct {
+		name       string
+		build      func(s *oracleScraper) string
+		cdbViews   []string
+		nonCDBView string
+		// conIDJoins are substrings that must each appear in the CDB variant.
+		conIDJoins []string
+	}{
+		{
+			name:       "top query",
+			build:      func(s *oracleScraper) string { return s.buildTopQuerySQL() },
+			cdbViews:   []string{"CDB_PROCEDURES"},
+			nonCDBView: "DBA_PROCEDURES",
+			conIDJoins: []string{
+				"P.CON_ID    = S.CON_ID",
+				"PE.CON_ID     = S.CON_ID",
+				"GROUP BY PROGRAM_ID, CON_ID",
+			},
+		},
+		{
+			name:       "query sample",
+			build:      func(s *oracleScraper) string { return s.buildQuerySampleSQL() },
+			cdbViews:   []string{"CDB_PROCEDURES", "CDB_OBJECTS"},
+			nonCDBView: "DBA_PROCEDURES",
+			conIDJoins: []string{
+				"P.CON_ID    = S.CON_ID",
+				"O.CON_ID    = S.CON_ID",
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cdbSQL := test.build(&oracleScraper{useCDBDictionaryViews: true})
+			for _, view := range test.cdbViews {
+				assert.Contains(t, cdbSQL, view, "CDB-root variant must read cross-container dictionary views")
+			}
+			for _, join := range test.conIDJoins {
+				assert.Contains(t, cdbSQL, join,
+					"CDB-root variant must qualify the join/grouping by CON_ID")
+			}
+
+			nonCDBSQL := test.build(&oracleScraper{useCDBDictionaryViews: false})
+			assert.Contains(t, nonCDBSQL, test.nonCDBView,
+				"non-root variant should keep the container-local dictionary view")
+			for _, view := range test.cdbViews {
+				assert.NotContains(t, nonCDBSQL, view)
+			}
+
+			// The two variants are interchangeable only if they take the same binds.
+			assert.Equal(t, strings.Count(nonCDBSQL, ":1"), strings.Count(cdbSQL, ":1"),
+				"variants must keep the same bind parameter contract")
+			assert.Equal(t, strings.Count(nonCDBSQL, ":2"), strings.Count(cdbSQL, ":2"),
+				"variants must keep the same bind parameter contract")
+		})
+	}
+}
+
+// Without SELECT on CDB_PROCEDURES/CDB_OBJECTS a CDB root must degrade to the DBA_* variants rather than
+// failing every scrape with ORA-00942, so upgrades on granular grants keep working.
+func TestCDBDictionaryGrantsFallback(t *testing.T) {
+	tests := []struct {
+		name      string
+		probeErr  error
+		wantCDB   bool
+		wantWarns int
+	}{
+		{name: "grants present", probeErr: nil, wantCDB: true},
+		{name: "grants missing falls back", probeErr: errors.New("ORA-00942: table or view does not exist"), wantCDB: false, wantWarns: 1},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			core, observedLogs := observer.New(zapcore.WarnLevel)
+			scrpr := oracleScraper{logger: zap.New(core)}
+
+			got := scrpr.hasCDBDictionaryGrants(t.Context(), &fakeDbClient{
+				Responses: [][]metricRow{nil},
+				Err:       test.probeErr,
+			})
+
+			assert.Equal(t, test.wantCDB, got)
+			assert.Equal(t, test.wantWarns,
+				observedLogs.FilterMessageSnippet("falling back to DBA_* dictionary views").Len(),
+				"a missing grant must warn and point at the README")
+
+			// The fallback must actually change which views the event queries read.
+			scrpr.useCDBDictionaryViews = got
+			if test.wantCDB {
+				assert.Contains(t, scrpr.buildQuerySampleSQL(), "CDB_OBJECTS")
+			} else {
+				assert.Contains(t, scrpr.buildQuerySampleSQL(), "DBA_OBJECTS")
+			}
+		})
+	}
 }
 
 func TestCalculateLookbackSeconds(t *testing.T) {

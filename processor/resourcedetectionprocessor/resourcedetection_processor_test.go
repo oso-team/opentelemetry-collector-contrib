@@ -170,8 +170,8 @@ func TestResourceProcessor(t *testing.T) {
 
 			clientConfig := confighttp.NewDefaultClientConfig()
 			// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
-			clientConfig.MaxIdleConns = 0
-			clientConfig.IdleConnTimeout = 0
+			clientConfig.MaxIdleConns = 0    //nolint:staticcheck // SA1019: see TODO above
+			clientConfig.IdleConnTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
 			clientConfig.ForceAttemptHTTP2 = false
 			clientConfig.Timeout = time.Second
 			cfg := &Config{
@@ -330,8 +330,8 @@ func TestProcessor_RefreshInterval_UpdatesResource(t *testing.T) {
 
 	clientConfig := confighttp.NewDefaultClientConfig()
 	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
-	clientConfig.MaxIdleConns = 0
-	clientConfig.IdleConnTimeout = 0
+	clientConfig.MaxIdleConns = 0    //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.IdleConnTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
 	clientConfig.ForceAttemptHTTP2 = false
 	clientConfig.Timeout = 500 * time.Millisecond
 	cfg := &Config{
@@ -449,8 +449,8 @@ func TestProcessor_RefreshInterval_KeepsLastGoodOnFailure(t *testing.T) {
 
 	clientConfig := confighttp.NewDefaultClientConfig()
 	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
-	clientConfig.MaxIdleConns = 0
-	clientConfig.IdleConnTimeout = 0
+	clientConfig.MaxIdleConns = 0    //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.IdleConnTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
 	clientConfig.ForceAttemptHTTP2 = false
 	clientConfig.Timeout = 500 * time.Millisecond
 	cfg := &Config{
@@ -835,8 +835,8 @@ func TestStartFailsGracefullyOnInvalidHTTPClientConfig(t *testing.T) {
 	// Configure invalid TLS settings that will cause ToClient() to fail
 	clientConfig := confighttp.NewDefaultClientConfig()
 	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
-	clientConfig.MaxIdleConns = 0
-	clientConfig.IdleConnTimeout = 0
+	clientConfig.MaxIdleConns = 0    //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.IdleConnTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
 	clientConfig.ForceAttemptHTTP2 = false
 	clientConfig.TLS = configtls.ClientConfig{
 		Config: configtls.Config{

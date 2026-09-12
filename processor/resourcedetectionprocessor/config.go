@@ -19,6 +19,7 @@ import (
 	elasticbeanstalkconfig "github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/aws/elasticbeanstalk/config"
 	lambdaconfig "github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/aws/lambda/config"
 	aksconfig "github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/azure/aks/config"
+	appserviceconfig "github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/azure/appservice/config"
 	azureconfig "github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/azure/config"
 	containerappsconfig "github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/azure/containerapps/config"
 	consulconfig "github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/consul/config"
@@ -109,6 +110,9 @@ type DetectorConfig struct {
 	// Aks contains user-specified configurations for the aks detector
 	AksConfig aksconfig.Config `mapstructure:"aks"`
 
+	// AzureAppServiceConfig contains user-specified configurations for the Azure App Service detector
+	AzureAppServiceConfig appserviceconfig.Config `mapstructure:"azureappservice"`
+
 	// AzureContainerAppsConfig contains user-specified configurations for the Azure Container Apps detector
 	AzureContainerAppsConfig containerappsconfig.Config `mapstructure:"azurecontainerapps"`
 
@@ -182,6 +186,7 @@ func detectorCreateDefaultConfig() DetectorConfig {
 		ElasticbeanstalkConfig:   elasticbeanstalkconfig.CreateDefaultConfig(),
 		LambdaConfig:             lambdaconfig.CreateDefaultConfig(),
 		AzureConfig:              azureconfig.CreateDefaultConfig(),
+		AzureAppServiceConfig:    appserviceconfig.CreateDefaultConfig(),
 		AksConfig:                aksconfig.CreateDefaultConfig(),
 		AzureContainerAppsConfig: containerappsconfig.CreateDefaultConfig(),
 		ConsulConfig:             consulconfig.CreateDefaultConfig(),
@@ -230,6 +235,8 @@ func (d *DetectorConfig) GetConfigFromType(detectorType internal.DetectorType) i
 		return d.AzureConfig
 	case "aks":
 		return d.AksConfig
+	case "azureappservice":
+		return d.AzureAppServiceConfig
 	case "azurecontainerapps":
 		return d.AzureContainerAppsConfig
 	case "consul":

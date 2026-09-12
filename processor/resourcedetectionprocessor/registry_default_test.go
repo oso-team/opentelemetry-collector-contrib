@@ -21,6 +21,7 @@ func TestDefaultDetectorRegistry(t *testing.T) {
 		"alibaba_ecs",
 		"aks",
 		"azure",
+		"azureappservice",
 		"azurecontainerapps",
 		"consul",
 		"digitalocean",
