@@ -1133,6 +1133,13 @@ configuration files; naming an unavailable detector in `detectors` fails startup
 reports the detectors compiled into that binary. Go silently ignores unknown build tags,
 so verify tag spelling when a detector is unexpectedly unavailable.
 
+For an EC2-only distribution, build the Collector with
+`remove_all_resourcedetection_detectors,enable_resourcedetection_ec2_detector` and
+configure `detectors: [ec2]`. This excludes the EKS and Kubernetes detector
+implementations. Other enabled Collector components can still require Kubernetes
+dependencies. Build tags select compiled packages; they do not remove requirements
+from `go.mod` or isolate dependency versions selected by Go module tooling.
+
 You have the ability to specify which detector should collect each attribute with `resource_attributes` option. An example of such a configuration is:
 
 ```yaml

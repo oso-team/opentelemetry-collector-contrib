@@ -18,10 +18,9 @@ issues: [47218]
 subtext: |
   Detector config types now live in dependency-light packages, so the always-compiled
   config schema no longer imports detector implementations. Combined with detector build
-  tags, the reachable source module inventory drops from 184 modules in the default build
-  to 64 in an env-only build and 76 in a GCP-only build. Unrelated AWS, Azure, GCP,
-  Kubernetes, Docker, and Consul dependencies are not linked unless their detector is
-  compiled in. Default builds remain unchanged.
+  tags, this allows custom distributions to omit dependencies used only by disabled
+  detectors. Dependencies needed by other enabled Collector components remain linked.
+  Default builds remain unchanged.
 
 # If your change doesn't affect end users or the exported elements of any package,
 # you should instead start your pull request title with [chore] or use the "Skip Changelog" label.

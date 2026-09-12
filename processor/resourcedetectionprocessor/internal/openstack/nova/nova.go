@@ -51,7 +51,7 @@ func NewDetector(set processor.Settings, dcfg internal.DetectorConfig, failOnMis
 		rb:                    metadata.NewResourceBuilder(cfg.ResourceAttributes),
 		metadataProvider:      novaprovider.NewProvider(),
 		labelRegexes:          rs,
-		failOnMissingMetadata: failOnMissingMetadata || cfg.FailOnMissingMetadata,
+		failOnMissingMetadata: failOnMissingMetadata || cfg.FailOnMissingMetadata, //nolint:staticcheck // Preserve the deprecated per-detector setting.
 	}, nil
 }
 
