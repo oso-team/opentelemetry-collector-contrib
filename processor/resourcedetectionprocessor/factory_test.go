@@ -278,6 +278,8 @@ func TestLifecycle(t *testing.T) {
 
 			// Configure with system detector (always available)
 			oCfg.Detectors = []string{"system"}
+			// Lifecycle coverage does not require DNS resolution of the test host.
+			oCfg.DetectorConfig.SystemConfig.HostnameSources = []string{"os"}
 			oCfg.Override = false
 
 			// Run the signal-specific test
@@ -295,6 +297,8 @@ func TestLifecycleWithAllDetectors(t *testing.T) {
 
 	// Test with multiple detectors that are always available
 	oCfg.Detectors = []string{"env", "system"}
+	// Lifecycle coverage does not require DNS resolution of the test host.
+	oCfg.DetectorConfig.SystemConfig.HostnameSources = []string{"os"}
 	oCfg.Override = true
 
 	ctx := t.Context()
