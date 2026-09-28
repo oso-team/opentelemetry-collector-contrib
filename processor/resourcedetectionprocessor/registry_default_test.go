@@ -23,6 +23,7 @@ func TestDefaultDetectorRegistry(t *testing.T) {
 		"azure",
 		"azureappservice",
 		"azurecontainerapps",
+		"azurefunctions",
 		"consul",
 		"digitalocean",
 		"docker",

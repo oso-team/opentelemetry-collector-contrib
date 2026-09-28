@@ -22,6 +22,7 @@ import (
 	appserviceconfig "github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/azure/appservice/config"
 	azureconfig "github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/azure/config"
 	containerappsconfig "github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/azure/containerapps/config"
+	functionsconfig "github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/azure/functions/config"
 	consulconfig "github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/consul/config"
 	digitaloceanconfig "github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/digitalocean/config"
 	dockerconfig "github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/docker/config"
@@ -116,6 +117,9 @@ type DetectorConfig struct {
 	// AzureContainerAppsConfig contains user-specified configurations for the Azure Container Apps detector
 	AzureContainerAppsConfig containerappsconfig.Config `mapstructure:"azurecontainerapps"`
 
+	// AzureFunctionsConfig contains user-specified configurations for the Azure Functions detector
+	AzureFunctionsConfig functionsconfig.Config `mapstructure:"azurefunctions"`
+
 	// ConsulConfig contains user-specified configurations for the Consul detector
 	ConsulConfig consulconfig.Config `mapstructure:"consul"`
 
@@ -189,6 +193,7 @@ func detectorCreateDefaultConfig() DetectorConfig {
 		AzureAppServiceConfig:    appserviceconfig.CreateDefaultConfig(),
 		AksConfig:                aksconfig.CreateDefaultConfig(),
 		AzureContainerAppsConfig: containerappsconfig.CreateDefaultConfig(),
+		AzureFunctionsConfig:     functionsconfig.CreateDefaultConfig(),
 		ConsulConfig:             consulconfig.CreateDefaultConfig(),
 		DigitalOceanConfig:       digitaloceanconfig.CreateDefaultConfig(),
 		DockerConfig:             dockerconfig.CreateDefaultConfig(),
@@ -239,6 +244,8 @@ func (d *DetectorConfig) GetConfigFromType(detectorType internal.DetectorType) i
 		return d.AzureAppServiceConfig
 	case "azurecontainerapps":
 		return d.AzureContainerAppsConfig
+	case "azurefunctions":
+		return d.AzureFunctionsConfig
 	case "consul":
 		return d.ConsulConfig
 	case "digitalocean":
